@@ -30,18 +30,18 @@ Flows zijn de nieuwere manier om taken achter elkaar of naast elkaar te zetten. 
 - Templates worden alleen bij het aanmaken gelezen. Een wijziging betekent: service opnieuw aanmaken.
 - Veldnaam = property-IRI met een spatie in plaats van elke punt.
 - Verandert de dataset, dan staat er op de servicekaart "Click here to update." Bijwerken kan alleen als de service draait.
-- Over scripts in templates (de `condition`-filters uit [taalanalyse.md](taalanalyse.md)) staat niets in de documentatie.
+- **Geen scripts in een analyzer.** In de documentatie staat het niet, maar in de praktijk weigert TriplyDB een template met een `condition`-filter (Painless): de service gaat op *Error* met "cannot execute scripts using [analysis] context" (21 oktober 2026). De analyse gebruikt daarom alleen standaardfilters, zie [taalanalyse.md](taalanalyse.md).
 
 ## Wat dit betekent voor de projectie
 
 | Punt | Gevolg |
 |---|---|
 | Inline maximaal 10.000 tekens | `alles.rq` en elk deel zijn ongeveer 18.200 tekens. Ze moeten dus als **saved query** in TriplyDB staan, zoals je eerdere jobs (`rce/alles-ceo-elastic/2`). |
-| Queries in één pipeline draaien parallel | Zet je alle 16 delen in één pipeline, dan draaien ze tegelijk op dezelfde Virtuoso, die ook de productiedataset bedient. Liever per job of in kleine groepen, of met `priority`. |
+| Queries in één pipeline draaien parallel | Zet je meerdere delen in één pipeline, dan draaien ze tegelijk op de service van `rce/cho`, die ook de productiedataset bedient. Liever per job of in kleine groepen, of met `priority`. |
 | Schrijven voegt toe | Alle delen mogen naar dezelfde dataset en graph schrijven. Draai je opnieuw, maak dan eerst de graph leeg, anders staat alles dubbel. |
 | Geen limiet aan het aantal resultaten | Je eerdere jobs schreven 8 mln resultaten (`vondsten-sdo-construct-1/6`), dus de omvang van de uitvoer is niet het probleem. |
-| Werking van een job onbekend | Dat één job op 5% stond na 4 uur, is een meting en geen gedocumenteerde grens. Waarom kleine delen sneller zijn, staat niet in de documentatie. |
-| Service via de API of via een flow | De template met scripts kan alleen via `curl` of via *(Re)create service*, niet via de knop in de webinterface. |
+| Werking van een job onbekend | Eén job voor alles stond na 4 uur op 5%. Zeven jobs, één per klasse, waren samen in ongeveer 3 uur klaar (21 oktober 2026). Dat zijn metingen, geen gedocumenteerde grenzen. Waarom kleinere jobs zoveel sneller zijn, staat niet in de documentatie. |
+| Service via de API of via een flow | Een service met templates kan alleen via `curl` of via *(Re)create service*, niet via de knop in de webinterface. |
 
 ## Bronnen
 

@@ -42,27 +42,43 @@ De splitser (`dictionary_decompounder`) zoekt een woord uit de lijst overal in e
 
 ## Wat er veranderd is
 
+TriplyDB laat geen scripts toe in een analyzer. Een eerste versie gebruikte `condition`-filters (Painless) die per woord bepaalden of er gesplitst werd. Bij het aanmaken van een service gaf dat *cannot execute scripts using [analysis] context*. De huidige versie gebruikt daarom alleen standaardfilters, zonder scripts.
+
 | Onderdeel | nl3 | ceo-elastic |
 |---|---|---|
-| tekenfilter | — | `dubbele_punt`: `:` wordt een spatie (in `nl_index`, `nl_zoeken` en `nl_exact`) |
-| samenstellingen (`nl_samenstellingen`) | 32 woorden, waaronder `terp` en `kapel` | `terp` en `kapel` eruit; `kuil`, `greppel`, `aardewerk`, `keramiek`, `haard` en `schrabber` erbij (36 woorden) |
-| splitsen met een voorwaarde | — | een eigen splitser per riskant woorddeel. Die wordt alleen toegepast als een conditie (Painless-script) klopt, zie de tabel hieronder |
+| tekenfilters | — | `dubbele_punt`: `:` wordt een spatie. `geen_dakkapel`, `geen_kapelaan`, `geen_kapelle`: zie *kapel* hieronder. Alle vier staan in `nl_index` en `nl_zoeken`, alleen `dubbele_punt` ook in `nl_exact`. |
+| samenstellingen (`nl_samenstellingen`) | 32 woorden, waaronder `terp` en `kapel` | `terp` eruit; `kuil`, `greppel`, `aardewerk`, `keramiek`, `haard` en `schrabber` erbij (37 woorden) |
 | meervouden (`nl_meervoud`) | 7 regels | 12 regels erbij: paalgat, paalspoor, graf/graven, crematiegraf, inhumatiegraf, vlakgraf, familiegraf, kindergraf, diergraf, dierengraf, urnenveld, grafveld |
-| volgorde in `nl_index` | eerst splitsen, dan meervoud | meervoud, splitsen, meervoud. De eerste ronde is voor hele woorden: *crematiegraven* wordt `crematiegraf` en levert daarna ook `graf` op. De tweede ronde is voor de afgesplitste delen: `molen` uit *windmolens* blijft `molen`. |
-| synoniemen (`erfgoed_synoniemen`) | 9 regels | 2 erbij: `keramiek => keramiek, aardewerk, steengoed, porselein, faience, fayence` (één richting, want aardewerk is een soort keramiek) en `hunebed, megalietgraf` |
+| volgorde in `nl_index` | eerst splitsen, dan meervoud | meervoud, splitsen, meervoud. De tweede ronde zorgt dat een afgesplitst deel dezelfde vorm krijgt als bij zoeken (`molen` uit *windmolens* blijft `molen`). |
+| synoniemen en zoekuitbreiding (`erfgoed_synoniemen`) | 9 regels | `terp, wierde` wordt een zoekuitbreiding (zie hieronder), en er komen 4 regels bij: graf, paal, keramiek en hunebed |
 
-| Splitser | Wordt toegepast als het token … |
+**terp, graf en paal** worden niet gesplitst, omdat ze ook midden in heel andere woorden zitten (waterput, topografisch, onbepaald). Bij het zoeken breiden ze in één richting uit met de echte samenstellingen uit de data, zoals nl3 dat doet bij `kerk` en `dijk`:
+
+| Zoekwoord | Zoekt ook op |
 |---|---|
-| `nl_terp` | begint met *terp* (maar niet met *terpentijn*), of eindigt op *terp* of *terpen* |
-| `nl_graf` | begint met *graf* (maar niet met *grafelijk*, *grafisch*, *grafiek*, *graficus* of *grafiet*, en niet precies *graft* is), of eindigt op *graf* |
-| `nl_paal` | begint met *paal*, of eindigt op *paal* (maar niet *opaal* is) |
-| `nl_kapel` | geen *dakkapel* bevat, niet begint met *kapela* (kapelaan, kapelanie) en niet eindigt op *kapelle* (Oostkapelle) |
+| `terp`, `terpen`, `wierde`, `wierden` | huisterp, dorpsterp, kerkterp, woonterp, veenterp, hoogterp, kernterp, terpje, terpdorp, terprest, terprestant, terplaag, terpzool, terplichaam, terpaardewerk, terpenaardewerk, terpboerderij, terpbebouwing, terpvorming, terpafgraving, huiswierde, dorpswierde, kerkwierde, wierdelaag, wierdezool, wierdelichaam, wierdedorp, wierdebebouwing, wierdekerkhof |
+| `graf` (ook `graven`, via de meervoudsregel) | grafheuvel, grafmonument, grafveld, crematiegraf, inhumatiegraf, mensengraf, diergraf, dierengraf, familiegraf, kindergraf, vlakgraf, massagraf, urnengraf, megalietgraf, grafkapel, grafkelder, grafkuil, grafkist, grafsteen, grafzerk, grafteken, grafkruis, grafcultuur |
+| `paal`, `palen` | paalkuil, paalgat, paalspoor, paalkrans, paalrij, palenrij, paalfundering, paalkern, grenspaal, trappaal, stoeppaal, dijkpaal, mijlpaal, nummerpaal, heipaal, hoekpaal, lantaarnpaal, gerechtspaal, galgpaal |
+| `keramiek` | aardewerk, steengoed, porselein, faience, fayence (één richting: aardewerk is een soort keramiek) |
+| `hunebed` ↔ `megalietgraf` | elkaar (twee richtingen) |
 
-De condities zijn afgeleid van de woorden die in het testcorpus voorkomen. De uitzonderingen markeren met een `keyword_marker` werkt niet, want de splitser negeert die markering.
+Plaatsnamen als Olterterp en Slappeterp staan bewust niet in de lijst. Een samenstelling die niet op de lijst staat, wordt niet gevonden als je op het losse woord zoekt. Komen er nieuwe bij, dan moeten ze aan de lijst worden toegevoegd.
+
+**kapel** blijft gesplitst, omdat er honderden echte kapellen zijn (doopkapel, grafkapel, mariakapel, annakapel, wegkapelletje, …). Drie tekenfilters (`pattern_replace`, hoofdletterongevoelig) maken de valse woorden eerst onherkenbaar voor de splitser:
+
+| Tekenfilter | Van | Naar | Voor |
+|---|---|---|---|
+| `geen_dakkapel` | `dakkapel` | `dakcapel` | dakkapel, dakkapellen, dakkapelvenster, … |
+| `geen_kapelaan` | `kapela` | `capela` | kapelaan, kapelanie |
+| `geen_kapelle` | `kapelle`, maar niet vóór een *n* of *t* | `capelle` | Kapelle, Oostkapelle, Kapellestraat (niet: kapellen, kapelletje) |
+
+Bij het zoeken gebeurt hetzelfde, dus `dakkapel` vindt nog steeds alle dakkapellen. In de resultaten wordt de oorspronkelijke tekst gemarkeerd.
+
+Dezelfde reparatie voor `terp` en `kapel` staat in elastic-erfgoed als `triply/elastic-service-nl4.json` (zie de README daar, *Versie 4*).
 
 ## Testcorpus en vergelijking
 
-[`tests/corpus.mjs`](../tests/corpus.mjs) haalt een vaste steekproef van 23.490 objecten uit `construct/alles.rq`: 6.000 rijksmonumenten, 1.000 complexen, alle 472 gezichten en 18 werelderfgoederen, 2.000 terreinen, 1.500 onderzoeksgebieden, 1.500 vondstlocaties, 3.000 archeologische complexen, 3.000 grondsporen en 5.000 vondsten. Dat duurt zo'n 2,5 minuut en levert 93 MB op.
+[`tests/corpus.mjs`](../tests/corpus.mjs) haalt een vaste steekproef van 23.490 objecten uit `construct/alles.rq`: 6.000 rijksmonumenten, 1.000 complexen, alle 472 gezichten en 18 werelderfgoederen, 2.000 terreinen, 1.500 onderzoeksgebieden, 1.500 vondstlocaties, 3.000 archeologische complexen, 3.000 grondsporen en 5.000 vondsten. Dat duurt ongeveer 2,5 minuut en levert 93 MB op.
 
 [`tests/vergelijk-analyse.mjs`](../tests/vergelijk-analyse.mjs) zet het corpus in twee lokale indexen: één met de nl3-analyse en één met de nieuwe. Daarna zoekt het in alle 16 tekstvelden, net als het zoekveld *Alles*. Per zoekvraag toont het welke woorden in de eerste 100 treffers gemarkeerd werden.
 
@@ -76,20 +92,20 @@ node tests/vergelijk-analyse.mjs corpus.ndjson
 
 Allebei hebben ze een lokale Elasticsearch nodig (zie [elastic-document.md](elastic-document.md#lokaal-testen)).
 
-Uitkomst op 19 oktober 2026. Per zoekvraag staat het aantal treffers, en per gemarkeerd woord in hoeveel van de eerste 100 treffers het voorkwam:
+Uitkomst op 21 oktober 2026, met de versie zonder scripts. Per zoekvraag staat het aantal treffers, en per gemarkeerd woord in hoeveel van de eerste 100 treffers het voorkwam:
 
 | Groep | Zoekvraag | nl3 | nieuw | Gemarkeerd (nl3) | Gemarkeerd (nieuw) |
 |---|---|---:|---:|---|---|
-| archeologie | `terp` | 1367 | 753 | wierde 75, terp 59, priesterpolder 3, oosterpark 2, terplagen 2, wierden 2 | terp 71, wierde 66, huisterp 5, wierden 2, wier 1, terpzigt 1 |
-| archeologie | `terpen` | 1171 | 541 | terp 35, waterput 25, huisterp 7, priesterpolder 4, oosterpark 3, terplagen 3 | terp 83, huisterp 17, terpen 7, slappeterp 5, terplagen 3, terprestant 2 |
-| archeologie | `wierde` | 1367 | 753 | wierde 75, terp 59, priesterpolder 3, oosterpark 2, terplagen 2, wierden 2 | terp 71, wierde 66, huisterp 5, wierden 2, wier 1, terpzigt 1 |
-| archeologie | `paal` | 193 | 831 | palen 56, paal 44, paaltjes 6, palig 1, paaltje 1 | paalkuil 30, paalgat 29, palen 28, stoeppaal 17, grenspaal 16, paal 10 |
+| archeologie | `terp` | 1367 | 743 | wierde 75, terp 59, priesterpolder 3, oosterpark 2, terplagen 2, wierden 2 | terp 75, wierde 66, wierden 2, huisterp 2, wier 1, uitwierde 1 |
+| archeologie | `terpen` | 1171 | 743 | terp 35, waterput 25, huisterp 7, priesterpolder 4, oosterpark 3, terplagen 3 | terp 75, wierde 66, wierden 2, huisterp 2, wier 1, uitwierde 1 |
+| archeologie | `wierde` | 1367 | 743 | wierde 75, terp 59, priesterpolder 3, oosterpark 2, terplagen 2, wierden 2 | terp 75, wierde 66, wierden 2, huisterp 2, wier 1, uitwierde 1 |
+| archeologie | `paal` | 193 | 990 | palen 56, paal 44, paaltjes 6, palig 1, paaltje 1 | stoeppalen 43, palen 20, grenspaal 15, stoeppaal 10, paal 7, paalkuil 4 |
 | archeologie | `paalgat` | 363 | 384 | paalgat 100 | paalgat 85, paalgaten 18 |
 | archeologie | `paalgaten` | 24 | 384 | paalgaten 24 | paalgat 85, paalgaten 18 |
 | archeologie | `kuil` | 788 | 1325 | kuil 96, kuilen 29, kuiltje 1 | kuil 84, afvalkuil 30, kuilen 26, haardkuil 18, meilerkuil 10, kuiler 3 |
 | archeologie | `greppel` | 869 | 922 | greppel 79, greppels 44, greppeltje 1 | greppel 79, greppels 43, kringgreppel 16, huisgreppel 6, kringgreppels 4, standgreppel 3 |
-| archeologie | `graf` | 97 | 589 | graf 91, graft 4, graften 2 | grafheuvel 30, grafheuvels 27, graf 20, crematiegraf 11, grafmonument 9, graven 8 |
-| archeologie | `graven` | 245 | 589 | graven 56, gegraven 30, graaf 16, gegraaf 1, gravend 1 | grafheuvel 30, grafheuvels 27, graf 20, crematiegraf 11, grafmonument 9, graven 8 |
+| archeologie | `graf` | 97 | 570 | graf 91, graft 4, graften 2 | grafheuvel 31, grafheuvels 27, graf 20, crematiegraf 11, grafmonument 10, graven 8 |
+| archeologie | `graven` | 245 | 570 | graven 56, gegraven 30, graaf 16, gegraaf 1, gravend 1 | grafheuvel 31, grafheuvels 27, graf 20, crematiegraf 11, grafmonument 10, graven 8 |
 | archeologie | `crematiegraven` | 7 | 43 | crematiegraven 7 | crematiegraf 38, crematiegraven 7 |
 | archeologie | `urnenvelden` | 5 | 69 | urnenvelden 5 | urnenveld 67, urnenvelden 5 |
 | archeologie | `hunebed` | 21 | 22 | hunebed 19, hunebedden 4 | hunebed 19, hunebedden 4, megalietgraf 2 |
@@ -98,12 +114,12 @@ Uitkomst op 19 oktober 2026. Per zoekvraag staat het aantal treffers, en per gem
 | archeologie | `haard` | 35 | 118 | haard 33, haardje 2 | haard 33, haardkuil 20, haardkuilen 13, haardplaats 8, haardpartij 5, haardplaatsen 4 |
 | archeologie | `schrabber` | 40 | 42 | schrabber 39, schrabbers 1 | schrabber 39, klingschrabber 5, afslagschrabber 4, dubbelschrabber 2, zijschrabber 1, duimnagelschrabber 1 |
 | archeologie | `scherven` | 228 | 228 | scherven 76, scherf 31, scherfjes 2 | scherven 76, scherf 31, scherfjes 2 |
-| archeologie | `waterput` | 321 | 321 | waterput 97, waterputten 10 | waterput 99, waterputten 8 |
+| archeologie | `waterput` | 321 | 321 | waterput 97, waterputten 10 | waterput 97, waterputten 10 |
 | archeologie | `kom` | 240 | 240 | kom 99, kommetje 1, kommen 1 | kom 100, kommetje 1 |
 | archeologie | `grape` | 42 | 42 | grape 41, grapes 1 | grape 41, grapes 1 |
 | archeologie | `onbepaald` | 1470 | 1484 | onbepaald 100 | onbepaald 100 |
-| monument | `kapel` | 830 | 262 | kapel 78, kapelletje 5, kapelle 4, kapelweg 3, blauwkapel 3, kapelstraat 3 | kapel 86, kapellen 6, kapelletje 5, grafkapel 2, kerkhofkapel 2, kapelweg 2 |
-| monument | `kapellen` | 830 | 262 | kapel 78, kapelletje 5, kapelle 4, kapelweg 3, blauwkapel 3, kapelstraat 3 | kapel 86, kapellen 6, kapelletje 5, grafkapel 2, kerkhofkapel 2, kapelweg 2 |
+| monument | `kapel` | 830 | 250 | kapel 78, kapelletje 5, kapelle 4, kapelweg 3, blauwkapel 3, kapelstraat 3 | kapel 88, kapellen 6, kapelletje 5, kapelstraat 3, grafkapel 2, kerkhofkapel 2 |
+| monument | `kapellen` | 830 | 250 | kapel 78, kapelletje 5, kapelle 4, kapelweg 3, blauwkapel 3, kapelstraat 3 | kapel 88, kapellen 6, kapelletje 5, kapelstraat 3, grafkapel 2, kerkhofkapel 2 |
 | monument | `dakkapel` | 593 | 593 | dakkapel 93, dakkapellen 10 | dakkapel 93, dakkapellen 10 |
 | monument | `kerk` | 684 | 684 | kerk 100, zaalkerk 10, kerkgebouw 9, kruiskerk 8, kerktoren 6, parochiekerk 4 | kerk 100, zaalkerk 9, kerkgebouw 9, kruiskerk 8, kerktoren 5, parochiekerk 4 |
 | monument | `molen` | 347 | 347 | molen 85, korenmolen 18, poldermolen 13, stellingmolen 5, molenaar 4, monnikmolen 4 | molen 85, korenmolen 18, poldermolen 14, stellingmolen 5, molenaar 4, monnikmolen 4 |
@@ -120,9 +136,9 @@ Uitkomst op 19 oktober 2026. Per zoekvraag staat het aantal treffers, en per gem
 
 Wat de tabel laat zien:
 
-- **terp / wierde:** van 1.367 naar 753 treffers. Wat wegvalt zijn waterputten, waterpartijen, geïnterpreteerd, oosterpark en priesterpolder. In de eerste 100 treffers worden nu alleen terpen en wierden gemarkeerd.
-- **kapel:** van 830 naar 262. Dat verschil komt helemaal door dakkapellen. Laat je dakkapel en verwante woorden weg, dan is het 214 bij nl3 tegen 213 nieuw.
-- **paal, kuil, graf, haard, aardewerk, keramiek:** veel meer treffers, en de gemarkeerde woorden zijn echte samenstellingen (paalkuil, afvalkuil, crematiegraf, haardkuil, pingsdorfaardewerk).
+- **terp / wierde:** van 1.367 naar 743 treffers. Wat wegvalt zijn waterputten, priesterpolder, oosterpark en geïnterpreteerd. In de eerste 100 treffers worden alleen terpen en wierden gemarkeerd.
+- **kapel:** van 830 naar 250. Dat verschil komt door dakkapellen en woorden die op dakkapel lijken. Echte kapellen (kapelletje, grafkapel, kerkhofkapel) worden nog gevonden.
+- **paal, kuil, graf, haard, aardewerk, keramiek:** veel meer treffers, en de gemarkeerde woorden zijn echte samenstellingen (stoeppaal, grenspaal, paalkuil, afvalkuil, crematiegraf, haardkuil, pingsdorfaardewerk).
 - **meervouden:** *paalgaten* van 24 naar 384, *urnenvelden* van 5 naar 69, *crematiegraven* van 7 naar 43. Enkelvoud en meervoud vinden nu elkaar.
 - **graven:** vindt nu graven in de zin van graf, en niet meer *gegraven* of *graaf*.
 - **monumentwoorden** (*kerk, molen, toren, kasteel, fort, boerderij, woning, dijk, grafmonument, waterpomp, Lekkerkerk, Kerkstraat*): hetzelfde aantal als bij nl3.
@@ -130,8 +146,7 @@ Wat de tabel laat zien:
 
 ## Kanttekeningen
 
-- **Painless in de analyse.** De condities zijn Painless-scripts in een `condition`-tokenfilter. Elasticsearch 8.17 accepteert ze, en `tests/lokaal-elastic.mjs` slaagt. Of TriplyDB scripts in een index template doorlaat, blijkt pas bij het aanmaken van de service. Zo niet, dan is er een terugvaloptie: `terp`, `kapel`, `graf` en `paal` niet splitsen, maar bij het zoeken uitbreiden met een vaste lijst samenstellingen. Zo doet nl3 het bij `kerk` en `dijk`. Dat vindt wel minder, want alleen de samenstellingen op de lijst tellen mee.
+- **Vaste lijsten.** Bij terp, graf en paal vindt het losse woord alleen de samenstellingen die op de lijst staan. Duikt er een nieuwe samenstelling op in de data (bijvoorbeeld *zandterp*), dan moet die erbij. De lijsten zijn opgesteld uit het testcorpus van 23.490 objecten.
 - **graven.** De regel `graf, graven => graf` maakt ook van *graven* als meervoud van graaf (de adellijke titel) `graf`. In de data gaat *graven* vooral over graven als in graf, en over graven als werkwoord. Het werkwoord staat bijna altijd in een vorm als *gegraven* of *afgegraven*, en die blijven los.
 - **fort** blijft gesplitst. Valse treffers (comfort, fortuin, Beaufort) zijn zeldzaam vergeleken met torenfort, fortificatie en fortwachterswoning.
-- **De nl3-demo heeft hetzelfde probleem** met *terp* (waterput) en *kapel* (dakkapel). Dat valt buiten dit experiment, maar de oplossing hier werkt daar ook.
 - **De steekproef is niet willekeurig.** Het is per soort de eerste n objecten vanaf een vaste positie, in URI-volgorde. Zolang `rce/cho` niet verandert, is hij wel herhaalbaar.

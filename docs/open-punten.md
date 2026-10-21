@@ -1,18 +1,36 @@
 # Open punten
 
-Stand van 19 oktober 2026.
+Stand van 21 oktober 2026.
+
+## Gedaan
+
+- **Volledige run:** 7 query-jobs, één per klasse ([`construct/delen/`](../construct/delen/), zie [schema.md](schema.md#in-7-queries-één-per-klasse)), samen ongeveer 3 uur. De resultaten staan in `rce/erfgoed`: 23.847.404 statements in 7 graphs. Eén job met de hele query (`rce/alles-ceo-elastic/2`) was te traag: na ongeveer 4 uur stond die op 5%.
+- **Index template zonder scripts:** de eerste versie met `condition`-filters gaf bij TriplyDB *cannot execute scripts using [analysis] context*. De huidige [`triply/elastic-service.json`](../triply/elastic-service.json) gebruikt alleen standaardfilters en is lokaal getest (zie [taalanalyse.md](taalanalyse.md) en [elastic-document.md](elastic-document.md#lokaal-testen)).
+- **Service aangemaakt:** `Erfgoed-ceo` op `rce/erfgoed` (21 oktober). De commando's staan in de README, onder *Service aanmaken en controleren*.
 
 ## Te doen
 
-1. **Index template bij Triply.** De template [`triply/elastic-service.json`](../triply/elastic-service.json) is lokaal getest tegen Elasticsearch 8.17.0: alle controles gelukt (zie [elastic-document.md](elastic-document.md#lokaal-testen)). Bij Triply draait 8.14 of nieuwer; bij het aanmaken van de service blijkt of de template daar ook zonder fouten wordt geaccepteerd.
-2. **Volledige run** in 16 query-jobs, één per bestand in [`construct/delen/`](../construct/delen/), allemaal met dezelfde doeldataset (zie [schema.md](schema.md#in-16-delen)). Daarna nagaan of het aantal subjecten per klasse klopt met [cho-data.md](cho-data.md). De job met alles in één query (`rce/alles-ceo-elastic/2`) liep te traag: 5% na ongeveer 4 uur. Doeldataset: `rce/erfgoed`, op 19 oktober aangemaakt voor deze test ("Volledige CHO-KENNIS voor Elastic test", nog leeg, *public*). Naam en toegang nog kiezen, bijvoorbeeld `erfgoed-ceo` naast `erfgoed-sdo` en *internal* zolang het een experiment is. Niet hernoemen terwijl er een job naartoe schrijft.
-3. **Nieuwe dataset** aanmaken (naam nog kiezen, bijv. `rce/cho-elastic`), met in de beschrijving dat het een zoekprojectie is en geen CEO-data.
-4. **Elastic-service** op die dataset aanmaken met de index template. Daar is een token met *Management access* voor nodig.
-5. **Controles** na het laden: aantal documenten per soort gelijk aan de tabel in [cho-data.md](cho-data.md); `geo_shape` gevuld; jaartallen als getal; steekproef met `tests/objecten.mjs` tegen het document in Elastic.
-6. **Verversen.** `rce/cho` wordt dagelijks herladen. Bepalen hoe vaak de projectie opnieuw draait en hoe de Elastic-service daarna bijgewerkt wordt.
-7. **Voorkant.** De zoekdemo aanpassen aan de nieuwe velden en soorten, of een nieuwe voorkant in deze map.
-8. **Taalanalyse bij Triply.** De analyse is aangepast voor archeologie en vergeleken met die van `Erfgoed-sdo-nl3` op een testcorpus van 23.490 objecten (zie [taalanalyse.md](taalanalyse.md)). Nog open: of TriplyDB de Painless-scripts in de `condition`-filters accepteert. Zo niet, dan de terugvaloptie uit taalanalyse.md. Nog meer regels kunnen erbij als de voorkant er is en blijkt waarop mensen zoeken.
-9. **Wijzigingen in elastic-erfgoed overnemen.** `triply/nl-analyse.json` is gebaseerd op een kopie. Verandert de analyse in elastic-erfgoed (bijvoorbeeld synoniemen uit de CHT-thesaurus), neem dat dan hier met de hand over en draai `node triply/maak-service.mjs`, `node tests/lokaal-elastic.mjs` en `node tests/vergelijk-analyse.mjs` opnieuw.
+1. **Controles** als de service op *running* staat:
+   - Het aantal documenten per soort is gelijk aan de tabel in [cho-data.md](cho-data.md).
+   - `geo_shape` is gevuld.
+   - De jaartallen staan als getal.
+   - Een steekproef met `tests/elastic-document.mjs` komt overeen met het document in Elastic.
+
+   Gaat de service op *Error*, dan staat de melding op de servicekaart.
+2. **Voorkant:** een zoekwebsite zoals de sdo-demo, in `web/` in deze map. De basis is `web/` uit elastic-erfgoed. Die wordt aangepast aan:
+   - de `ceo-elastic`-velden en de 10 soorten;
+   - nieuwe facetten: soort, provincie, gemeente, juridische status, functie, type, materiaal, vertrouwelijk en periode;
+   - relaties: ligt in, bevat, alles in een onderzoeksgebied;
+   - de geleende geometrie op de kaart.
+3. **Naam en toegang van de dataset.** Hij heet nu `rce/erfgoed` (*public*), met de beschrijving "Volledige CHO-KENNIS voor Elastic test". Voorstel:
+   - de naam `erfgoed-ceo`, naast `erfgoed-sdo`;
+   - *internal* zolang het een experiment is;
+   - de beschrijving uit [`triply/dataset-beschrijving.md`](../triply/dataset-beschrijving.md).
+
+   Krijgt de dataset een nieuwe naam, dan veranderen de URL van het zoekendpoint en de commando's in de README.
+4. **Verversen.** `rce/cho` wordt dagelijks herladen. Bepalen hoe vaak de projectie opnieuw draait (eerst de graphs leegmaken, dan de 7 jobs) en hoe de Elastic-service daarna bijgewerkt wordt.
+5. **Taalanalyse bijhouden.** De lijsten voor terp, graf en paal liggen vast. Komt er een nieuwe samenstelling in de data, dan moet die erbij (zie [taalanalyse.md](taalanalyse.md)). Er kunnen ook regels bij als de voorkant er is en blijkt waarop mensen zoeken.
+6. **Wijzigingen in elastic-erfgoed overnemen.** `triply/nl-analyse.json` is gebaseerd op een kopie. Verandert de analyse in elastic-erfgoed (bijvoorbeeld synoniemen uit de CHT-thesaurus), neem dat dan hier met de hand over. Draai daarna `node triply/maak-service.mjs`, `node tests/lokaal-elastic.mjs` en `node tests/vergelijk-analyse.mjs` opnieuw.
 
 ## Te beslissen of af te stemmen
 

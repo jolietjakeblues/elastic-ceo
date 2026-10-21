@@ -1,9 +1,9 @@
-// Maakt construct/delen/*.rq: dezelfde CONSTRUCT als alles.rq, in 16 delen, om als losse query-jobs
+// Maakt construct/delen/*.rq: dezelfde CONSTRUCT als alles.rq, in 7 delen (één per klasse), om als losse query-jobs
 // in TriplyDB te draaien. Alleen het blok "objecten" verschilt. Samen leveren de delen precies
 // dezelfde triples als alles.rq. Bewerk de delen niet: pas alles.rq aan en draai dit script opnieuw.
 // Gebruik: node construct/maak-delen.mjs
 //
-// Grote klassen worden gesplitst op de URI (als tekst), niet met OFFSET. Wordt rce/cho tussen twee jobs
+// Grote klassen kunnen gesplitst worden op de URI (als tekst), niet met OFFSET (zie GRENZEN hieronder). Wordt rce/cho tussen twee jobs
 // herladen, dan valt elk object nog steeds in precies één deel; met OFFSET zou alles verschuiven.
 // De grenzen zijn op 19 oktober 2026 gemeten (ORDER BY STR(?s) ... OFFSET n) en geven delen van
 // ongeveer 50.000 tot 100.000 objecten. Groeit een klasse flink, dan worden de delen groter; meet dan

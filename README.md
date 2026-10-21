@@ -7,20 +7,21 @@ Hoe zet je Elasticsearch op de primaire RCE-dataset `rce/cho`, die naar de Cultu
 Kort:
 
 - Een Elastic-service **rechtstreeks** op `rce/cho` werkt niet goed. Triply maakt één document per subject, en in CEO staat de tekst één tot vijf stappen van het object af (zie [docs/achtergrond.md](docs/achtergrond.md)).
-- Daarom een **zoekprojectie**: één document per erfgoedobject, gebouwd met één CONSTRUCT op `rce/cho` en in een nieuwe dataset gezet. Daarop komt een Elastic-service.
+- Daarom een **zoekprojectie**: één document per erfgoedobject, gebouwd met CONSTRUCT-queries op `rce/cho` en in een eigen dataset gezet. Daarop komt een Elastic-service.
 - **Alle velden** staan in een eigen namespace, **`ceo-elastic:`**, zodat projectie en CEO niet door elkaar lopen. Een veld dat uit CEO komt, houdt de lokale naam van zijn CEO-property (`ceo:naam` → `ceo-elastic:naam`).
 - Het gaat om **alle tien soorten**, zonder beperkingen: rijksmonumenten, complexen, gezichten, werelderfgoed, archeologische terreinen, onderzoeksgebieden, vondstlocaties, archeologische complexen, grondsporen en vondsten. Samen ca. 1,2 mln objecten.
 
-## Status (19 oktober 2026)
+## Status (21 oktober 2026)
 
 | Onderdeel | Status |
 |---|---|
 | Velden per soort | uitgewerkt in [docs/schema.md](docs/schema.md) |
 | CONSTRUCT | [construct/alles.rq](construct/alles.rq), getest op voorbeelden van alle tien soorten, op alle complexen en op alle archeologische terreinen |
-| Volledige run (1,2 mln objecten) | in 16 losse query-jobs ([construct/delen/](construct/delen/)); als één job te traag (5% na 4 uur) |
-| Nieuwe dataset en Elastic-service | nog niet aangemaakt |
-| Index template | [triply/elastic-service.json](triply/elastic-service.json); dekt alle velden van de query; lokaal getest tegen Elasticsearch 8.17.0 (alle controles gelukt) |
-| Voorkant | nog niet aangepast |
+| Volledige run (1,2 mln objecten) | gedaan: 7 query-jobs, één per klasse ([construct/delen/](construct/delen/)), samen ongeveer 3 uur. Eén job voor alles was te traag (5% na 4 uur). |
+| Dataset | `rce/erfgoed` (*public*): 23.847.404 statements in 7 graphs. De naam (bijvoorbeeld `erfgoed-ceo`) en de toegang zijn nog niet definitief. |
+| Index template | [triply/elastic-service.json](triply/elastic-service.json): alle velden van de query, zonder scripts, lokaal getest tegen Elasticsearch 8.17.0 |
+| Elastic-service | `Erfgoed-ceo` op `rce/erfgoed`, aangemaakt op 21 oktober, bezig met indexeren |
+| Voorkant | volgende stap: een zoekwebsite zoals de sdo-demo, in `web/` |
 
 Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 
@@ -29,16 +30,17 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | Pad | Inhoud |
 |---|---|
 | [`construct/alles.rq`](construct/alles.rq) | De CONSTRUCT voor de hele projectie; hier pas je de query aan |
-| [`construct/delen/`](construct/delen/) | Dezelfde query in 16 delen, elk als losse query-job in TriplyDB (gemaakt uit `alles.rq`) |
-| [`construct/maak-delen.mjs`](construct/maak-delen.mjs) | Maakt de 16 delen uit `alles.rq` |
+| [`construct/delen/`](construct/delen/) | Dezelfde query in 7 delen, één per klasse, elk als losse query-job in TriplyDB (gemaakt uit `alles.rq`) |
+| [`construct/maak-delen.mjs`](construct/maak-delen.mjs) | Maakt de 7 delen uit `alles.rq`; kan grote klassen ook kleiner splitsen |
 | [`triply/elastic-service.json`](triply/elastic-service.json) | Configuratie van de Elasticsearch-service (index template); niet met de hand bewerken |
 | [`triply/maak-service.mjs`](triply/maak-service.mjs) | Maakt `elastic-service.json`: velden per type, Nederlandse analyse uit `nl-analyse.json` |
 | [`triply/nl-analyse.json`](triply/nl-analyse.json) | Analyzers, filters en normalizer: die van `Erfgoed-sdo-nl3`, aangepast voor archeologie |
 | [`triply/nl-analyse-nl3.json`](triply/nl-analyse-nl3.json) | Ongewijzigde kopie van de analyse in `Erfgoed-sdo-nl3`, alleen voor de vergelijking |
+| [`triply/dataset-beschrijving.md`](triply/dataset-beschrijving.md) | Beschrijving van de dataset, om in TriplyDB te plakken |
 | [`docs/achtergrond.md`](docs/achtergrond.md) | Waarom een projectie, en niet Elastic rechtstreeks op `rce/cho`, schema.org of een eigen Elastic |
 | [`docs/besluiten.md`](docs/besluiten.md) | Gemaakte keuzes, met de reden |
-| [`docs/schema.md`](docs/schema.md) | Alle velden: bron in CEO, soorten, voorstel voor Elastic, hoe de query draait |
-| [`docs/elastic-document.md`](docs/elastic-document.md) | Hoe een object er in Elastic uitziet (JSON), wat de index template ermee moet, voorbeeldqueries |
+| [`docs/schema.md`](docs/schema.md) | Alle velden: bron in CEO, soorten, type in Elastic, hoe de query draait |
+| [`docs/elastic-document.md`](docs/elastic-document.md) | Hoe een object er in Elastic uitziet (JSON), de index template, lokaal testen, voorbeeldqueries |
 | [`docs/taalanalyse.md`](docs/taalanalyse.md) | Taalanalyse: wat er anders is dan in `Erfgoed-sdo-nl3` en waarom, met de vergelijking op een testcorpus |
 | [`docs/voorbeeld-rm14948.md`](docs/voorbeeld-rm14948.md) | Eén monument uitgeschreven: van CEO naar document |
 | [`docs/triply-jobs.md`](docs/triply-jobs.md) | Wat TriplyDB documenteert over query-jobs, flows en Elasticsearch-services, en wat dat betekent voor de projectie |
@@ -51,6 +53,44 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`tests/corpus.mjs`](tests/corpus.mjs) | Bouwt een testcorpus van 23.490 objecten (NDJSON) voor de taalanalyse |
 | [`tests/vergelijk-analyse.mjs`](tests/vergelijk-analyse.mjs) | Vergelijkt de nl3-analyse en de nieuwe op het corpus, in een lokale Elasticsearch |
 | [`tests/schaal.mjs`](tests/schaal.mjs) | Draait de query voor alle objecten van één klasse: tijd, triples, velden |
+
+## Service aanmaken en controleren
+
+In PowerShell, vanuit deze map. Je hebt een TriplyDB-token met *Management access* nodig. Zet het token niet in een bestand of in een gesprek.
+
+Token zetten (geldt alleen voor dit terminalvenster):
+
+```bash
+$env:TRIPLY_TOKEN = "plak-hier-je-token"
+```
+
+Service aanmaken op `rce/erfgoed`:
+
+```bash
+curl.exe -H "Authorization: Bearer $env:TRIPLY_TOKEN" -H "Content-Type: application/json" -X POST "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services" -d "@C:\AI\elastic-ceo\triply\elastic-service.json"
+```
+
+Status van de services. Wacht tot bij `Erfgoed-ceo` `running` staat:
+
+```bash
+curl.exe -s "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services" | Select-String -Pattern '"name":"[^"]*","id"|"status":"[a-z]*"' -AllMatches | ForEach-Object { $_.Matches.Value }
+```
+
+Aantal documenten per soort:
+
+```bash
+(Invoke-RestMethod -Method Post -Uri "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services/Erfgoed-ceo/_search" -ContentType "application/json" -Body '{"size":0,"aggs":{"soort":{"terms":{"field":"@id.soort","size":20}}}}').aggregations.soort.buckets | Format-Table key, doc_count
+```
+
+Dat moet overeenkomen met de aantallen in [docs/cho-data.md](docs/cho-data.md): vondsten 446.809, archeologischcomplex 360.408, archeologischonderzoeksgebied 113.562, vondstlocatie 111.885, grondsporen 92.697, rijksmonument 67.496, archeologischterrein 13.025, complex 2.834, gezicht 472, werelderfgoed 18 (stand 19 oktober 2026).
+
+Token weer weghalen:
+
+```bash
+Remove-Item Env:TRIPLY_TOKEN
+```
+
+Hernoem je de dataset, vervang dan `rce/erfgoed` in de URL's. Gaat de service op *Error*, dan staat de melding op de servicekaart in TriplyDB. De template wordt alleen bij het aanmaken gelezen. Na een wijziging (`node triply/maak-service.mjs`) verwijder je daarom de service en maak je hem opnieuw aan.
 
 ## Testen
 

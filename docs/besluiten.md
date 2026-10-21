@@ -78,4 +78,16 @@ Het experiment staat in `C:\AI\elastic-ceo` en niet in `elastic-erfgoed`, zodat 
 
 ## 14. Eigen taalanalyse, gebaseerd op nl3
 
-De Nederlandse analyse van `Erfgoed-sdo-nl3` is het uitgangspunt, maar is aangepast voor archeologie. `terp` en `kapel` worden alleen nog onder voorwaarden gesplitst: anders vindt *terp* ook waterput en *kapel* ook dakkapel. Voor `graf` en `paal` geldt hetzelfde. Daarnaast kwamen er woorden in de samenstellingenlijst (kuil, greppel, aardewerk, keramiek, haard, schrabber), meervoudsregels (paalgaten, graven, urnenvelden), synoniemen (keramiek → aardewerk, hunebed ↔ megalietgraf) en een filter dat de dubbele punt in ABR-labels vervangt. De zoekresultaten voor monumentwoorden blijven gelijk. Details en vergelijking: [taalanalyse.md](taalanalyse.md).
+De Nederlandse analyse van `Erfgoed-sdo-nl3` is het uitgangspunt, maar is aangepast voor archeologie:
+
+- `terp`, `graf` en `paal` worden niet gesplitst, want anders vindt *terp* ook waterput, *graf* ook topografisch en *paal* ook onbepaald. Bij het zoeken breiden ze uit met een vaste lijst echte samenstellingen.
+- `kapel` wordt wel gesplitst, maar tekenfilters maken *dakkapel*, *kapelaan* en *Kapelle* eerst onherkenbaar.
+- Erbij kwamen: woorden in de samenstellingenlijst (kuil, greppel, aardewerk, keramiek, haard, schrabber), meervoudsregels (paalgaten, graven, urnenvelden), synoniemen (keramiek → aardewerk, hunebed ↔ megalietgraf) en een filter dat de dubbele punt in ABR-labels vervangt.
+
+De zoekresultaten voor monumentwoorden blijven gelijk. Details en vergelijking: [taalanalyse.md](taalanalyse.md).
+
+Op 21 oktober aangepast: de eerste versie gebruikte `condition`-filters met Painless-scripts, maar TriplyDB laat geen scripts toe in een analyzer ("cannot execute scripts using [analysis] context").
+
+## 15. Zeven query-jobs, één per klasse
+
+De hele projectie als één query-job was te traag: 5% na ongeveer 4 uur. Opgesplitst in 7 queries, één per klasse (de vier kleine klassen samen), duurde het samen ongeveer 3 uur, op 21 oktober 2026. Het splitsen in kleinere delen op URI is voorbereid (de grenzen staan in `construct/maak-delen.mjs`), maar was niet nodig.

@@ -163,31 +163,34 @@ Gemeten op `https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/cho/sparql` 
 | alle complexen (2.834) | 12 s | 37.706 |
 | alle archeologische terreinen (13.025) | 46 s | 159.633 |
 
-Dat is ongeveer 3,5 ms per object op het SPARQL-endpoint. Als één query-job voor alle 1,2 mln objecten werkt het niet. De job `rce/alles-ceo-elastic/2` stond op 19 oktober na ongeveer 4 uur op 5%, wat neerkomt op zo'n 80 uur in totaal. Ook de eerdere jobs voor `archeologie-sdo` liepen alleen goed in stukken van hooguit een paar honderdduizend objecten.
+Dat is ongeveer 3,5 ms per object op het SPARQL-endpoint. Als één query-job voor alle 1,2 mln objecten werkt het niet: de job `rce/alles-ceo-elastic/2` stond op 19 oktober na ongeveer 4 uur op 5%.
 
-### In 16 delen
+### In 7 queries, één per klasse
 
-[`construct/delen/`](../construct/delen/) bevat dezelfde query in 16 delen, elk bedoeld als een losse query-job met dezelfde doeldataset. Alleen het blok *objecten* verschilt. Samen leveren de delen precies dezelfde triples als `alles.rq`.
+[`construct/delen/`](../construct/delen/) bevat dezelfde query in 7 delen, één per klasse. De vier kleine klassen zitten samen in deel 02. Elk deel is één query-job, en alle jobs schrijven naar dezelfde doeldataset. Alleen het blok *objecten* verschilt. Samen leveren de delen precies dezelfde triples als `alles.rq`.
 
-| Deel | Objecten (19 oktober 2026) |
-|---|---:|
-| `01-rijksmonument.rq` | 67.496 |
-| `02-complex-gezicht-werelderfgoed-terrein.rq` | 2.834 + 472 + 18 + 13.025 |
-| `03-grondsporen.rq` | 92.697 |
-| `04`–`05-archeologischonderzoeksgebied-1/2.rq` | 57.000 + 56.562 |
-| `06`–`07-vondstlocatie-1/2.rq` | 56.000 + 55.885 |
-| `08`–`11-archeologischcomplex-1…4.rq` | 4 × ca. 90.000 |
-| `12`–`16-vondsten-1…5.rq` | 4 × 100.000 + 46.809 |
-| **totaal** | **1.209.206** |
+Gedraaid op 21 oktober 2026 als query-jobs van `rce/cho` naar `rce/erfgoed`, in ongeveer 3 uur in totaal (van ongeveer 10:00 tot 13:00):
 
-- **Afbakening op URI, niet met `OFFSET`.** De grote klassen zijn gesplitst met `FILTER(STR(?s) >= "…" && STR(?s) < "…")` in een subquery. Wordt `rce/cho` tussen twee jobs herladen, dan valt elk object nog steeds in precies één deel. Met `OFFSET` zou alles verschuiven, met dubbele en ontbrekende objecten tot gevolg. De grenzen zijn op 19 oktober gemeten. Groeit een klasse flink, dan worden de delen wat groter.
-- **Gecontroleerd:** de aantallen per deel tellen per klasse precies op tot het totaal. Een smal stukje van deel 13 geeft dezelfde 84 triples als `alles.rq` voor dezelfde 4 vondsten. De vorm met subquery is even snel als de gewone vorm (complexen: 11,0 tegenover 11,2 s, met dezelfde 37.706 triples).
-- **Niet als HTTP-query te testen:** deel 02 duurt langer dan de grens van ongeveer 58 seconden op het SPARQL-endpoint (504), vooral door de grote vlakken van gezichten en werelderfgoed. In een query-job geldt die grens niet.
+| Deel | Objecten | Graph in `rce/erfgoed` | Statements |
+|---|---:|---|---:|
+| `01-rijksmonument.rq` | 67.496 | `…/graphs/rijksmonumenten-ceo-elastic` | 2.857.274 |
+| `02-complex-gezicht-werelderfgoed-terrein.rq` | 16.349 | `…/graphs/complex-gezicht-werelderfgd-ceo-elastic` | 203.201 |
+| `03-grondsporen.rq` | 92.697 | `…/graphs/grondsporen-ceo-elastic` | 1.524.430 |
+| `04-archeologischonderzoeksgebied.rq` | 113.562 | `…/graphs/archeologischonderzoeksgeb-ceo-elastic` | 1.399.045 |
+| `05-vondstlocatie.rq` | 111.885 | `…/graphs/vondstlocatie-ceo-elastic` | 2.650.590 |
+| `06-archeologischcomplex.rq` | 360.408 | `…/graphs/archeologischcomplex-ceo-elastic` | 4.672.063 |
+| `07-vondsten.rq` | 446.809 | `…/graphs/vondsten-ceo-elastic` | 10.540.801 |
+| **totaal** | **1.209.206** | 7 graphs | **23.847.404** |
+
 - **Niet met de hand bewerken.** Pas `alles.rq` aan en maak de delen opnieuw:
 
 ```bash
 node construct/maak-delen.mjs
 ```
+
+- **Opnieuw draaien:** een job voegt toe aan een graph en vervangt niets. Verwijder daarom eerst de graph van dat deel, anders staat alles dubbel.
+- **Kleiner splitsen kan** als een klasse ooit te groot wordt voor één job. In `construct/maak-delen.mjs` staan als commentaar URI-grenzen die op 19 oktober zijn gemeten, voor delen van 50.000 tot 100.000 objecten. Afgebakend wordt op URI en niet met `OFFSET`: wordt `rce/cho` tussen twee jobs herladen, dan valt elk object nog steeds in precies één deel.
+- **Niet als HTTP-query te testen:** de grote delen duren langer dan de grens van ongeveer 58 seconden op het SPARQL-endpoint (504). In een query-job geldt die grens niet.
 
 De query is ook per veld te splitsen: laat dan alle UNION-blokken weg op één na.
 

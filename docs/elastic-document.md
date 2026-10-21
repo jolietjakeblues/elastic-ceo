@@ -112,7 +112,7 @@ De configuratie van de service staat in [`triply/elastic-service.json`](../tripl
 node triply/maak-service.mjs
 ```
 
-In het script staat elk veld één keer, in de lijst van zijn type. De Nederlandse analyse (analyzers `nl_index`, `nl_zoeken`, `nl_exact`, synoniemen, meervoudsregels, samenstellingen en de normalizer `soort`) komt uit [`triply/nl-analyse.json`](../triply/nl-analyse.json). Dat is de analyse van `Erfgoed-sdo-nl3`, aangepast voor archeologie (zie [taalanalyse.md](taalanalyse.md)). Er zitten Painless-scripts in (`condition`-filters); of TriplyDB die accepteert, blijkt bij het aanmaken van de service.
+In het script staat elk veld één keer, in de lijst van zijn type. De Nederlandse analyse (analyzers `nl_index`, `nl_zoeken`, `nl_exact`, synoniemen, meervoudsregels, samenstellingen en de normalizer `soort`) komt uit [`triply/nl-analyse.json`](../triply/nl-analyse.json). Dat is de analyse van `Erfgoed-sdo-nl3`, aangepast voor archeologie (zie [taalanalyse.md](taalanalyse.md)). Er zitten geen scripts in: TriplyDB weigert een analyzer met een `condition`-filter (Painless).
 
 Elastic zet de strings bij het indexeren om naar het type uit de template.
 
@@ -154,7 +154,7 @@ docker rm -f ceo-elastic-test
 
 De image is 2,0 GB. Weghalen met `docker rmi docker.elastic.co/elasticsearch/elasticsearch:8.17.0`.
 
-Uitkomst op 19 oktober 2026: **alle 35 controles gelukt.**
+Uitkomst op 19 oktober 2026: **alle 35 controles gelukt.** Opnieuw gedraaid op 21 oktober 2026 met de analyse zonder scripts: weer alle 35 gelukt.
 
 | Controle | Uitkomst |
 |---|---|
@@ -176,13 +176,35 @@ Uitkomst op 19 oktober 2026: **alle 35 controles gelukt.**
 
 Wat opviel: bij lange omschrijvingen zet Elastic `omschrijving.keyword` en `overigeOmschrijving.keyword` in `_ignored`. Dat komt door `ignore_above: 256`, en het klopt zo: op een lange omschrijving facetteer je niet. Zoeken op `omschrijving` en `.exact` werkt gewoon.
 
-De service aanmaken op de nieuwe dataset (naam nog kiezen) gaat met een token met *Management access*. Een leestoken geeft `Unauthorized`. In PowerShell:
+### De service aanmaken
+
+De service `Erfgoed-ceo` maak je aan op `rce/erfgoed`, met een token met *Management access*. Een leestoken geeft `Unauthorized`, en een verkeerde datasetnaam geeft *Not found or unauthorized*. In PowerShell:
 
 ```bash
-curl.exe -H "Authorization: Bearer $env:TRIPLY_TOKEN" -H "Content-Type: application/json" -X POST "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/<dataset>/services" -d "@triply/elastic-service.json"
+$env:TRIPLY_TOKEN = "plak-hier-je-token"
 ```
 
-TriplyDB leest de template alleen bij het aanmaken. Na een wijziging moet de service opnieuw worden aangemaakt.
+```bash
+curl.exe -H "Authorization: Bearer $env:TRIPLY_TOKEN" -H "Content-Type: application/json" -X POST "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services" -d "@C:AIelastic-ceo	riplyelastic-service.json"
+```
+
+Status. Wacht tot bij `Erfgoed-ceo` `running` staat:
+
+```bash
+curl.exe -s "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services" | Select-String -Pattern '"name":"[^"]*","id"|"status":"[a-z]*"' -AllMatches | ForEach-Object { $_.Matches.Value }
+```
+
+Aantal documenten per soort:
+
+```bash
+(Invoke-RestMethod -Method Post -Uri "https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/erfgoed/services/Erfgoed-ceo/_search" -ContentType "application/json" -Body '{"size":0,"aggs":{"soort":{"terms":{"field":"@id.soort","size":20}}}}').aggregations.soort.buckets | Format-Table key, doc_count
+```
+
+```bash
+Remove-Item Env:TRIPLY_TOKEN
+```
+
+TriplyDB leest de template alleen bij het aanmaken. Na een wijziging verwijder je de service en maak je hem opnieuw aan.
 
 Elk veld heeft een lange naam, maar in een query is dat alleen een string. Een voorkant zet de prefix er gewoon voor (`const CE = 'https://linkeddata cultureelerfgoed nl/def/ceo-elastic#'`).
 
