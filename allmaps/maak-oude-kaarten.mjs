@@ -157,7 +157,7 @@ for await (const regel of regels(process.argv[2])) {
   const oud = perScan.get(res.id);
   if (oud && oud.modified >= (p.modified ?? '')) continue;
   perScan.set(res.id, {
-    id: p.id.split('/').pop(), modified: p.modified ?? '', titel, collectie, jaar,
+    id: p.id.split('/').pop(), modified: p.modified ?? '', titel, collectie, jaar, bron: new URL(res.id).host,
     bbox: bbox.map(rond),
     ringen: rs.map(r => r.flatMap(([x, y]) => [rond(x), rond(y)])),
   });
@@ -165,12 +165,15 @@ for await (const regel of regels(process.argv[2])) {
 
 const kaarten = [...perScan.values()].sort((a, b) => (a.jaar ?? 9999) - (b.jaar ?? 9999) || a.titel.localeCompare(b.titel, 'nl') || a.id.localeCompare(b.id));
 const collecties = [...new Set(kaarten.map(k => k.collectie))].sort();
+// De server waar de scan staat (IIIF-host): ligt die plat, dan werken alle kaarten van die server niet (de website test er één).
+const bronnen = [...new Set(kaarten.map(k => k.bron))].sort();
 const out = {
   gegenereerd: new Date().toISOString().slice(0, 10),
   bron: 'Allmaps (https://allmaps.org), georeferenties CC0; kaartbeelden van de genoemde collecties',
-  velden: ['id', 'titel', 'collectie (index in collecties)', 'jaar', 'bbox [minLon, minLat, maxLon, maxLat]', 'buitenringen [lon, lat, lon, lat, ...]'],
+  velden: ['id', 'titel', 'collectie (index in collecties)', 'jaar', 'bbox [minLon, minLat, maxLon, maxLat]', 'buitenringen [lon, lat, lon, lat, ...]', 'bron: server van de scan (index in bronnen)'],
   collecties,
-  kaarten: kaarten.map(k => [k.id, k.titel, collecties.indexOf(k.collectie), k.jaar, k.bbox, k.ringen]),
+  bronnen,
+  kaarten: kaarten.map(k => [k.id, k.titel, collecties.indexOf(k.collectie), k.jaar, k.bbox, k.ringen, bronnen.indexOf(k.bron)]),
 };
 writeFileSync(OUT, JSON.stringify(out) + '\n');
 const perCollectie = Object.entries(Object.groupBy(kaarten, k => k.collectie)).map(([c, l]) => `${c} ${l.length}`).join(', ');

@@ -20,9 +20,9 @@ function inRing(ring, lon, lat) {
 // Kaarten uit de index die het punt bevatten, oudste eerst (zonder jaar achteraan), zoals in oude-kaarten.json.
 export function kaartenOp(index, lat, lon) {
   const result = [];
-  for (const [id, titel, collectie, jaar, [x0, y0, x1, y1], ringen] of index?.kaarten ?? []) {
+  for (const [id, titel, collectie, jaar, [x0, y0, x1, y1], ringen, bron] of index?.kaarten ?? []) {
     if (!MAP_ID.test(id) || lon < x0 || lon > x1 || lat < y0 || lat > y1) continue;
-    if (ringen.some(ring => inRing(ring, lon, lat))) result.push({ id, titel, collectie: index.collecties[collectie] ?? '', jaar, bbox: [x0, y0, x1, y1] });
+    if (ringen.some(ring => inRing(ring, lon, lat))) result.push({ id, titel, collectie: index.collecties[collectie] ?? '', jaar, bbox: [x0, y0, x1, y1], bron: index.bronnen?.[bron] ?? '' });
   }
   return result;
 }
@@ -53,6 +53,34 @@ export function minuutplannen(json, lat, lon) {
   return [...bladen.values()].sort((a, b) => a.code.localeCompare(b.code));
 }
 export const minuutplanLabel = blad => [blad.gemeente, blad.sectie && `sectie ${blad.sectie}`, blad.blad && `blad ${blad.blad}`].filter(Boolean).join(', ') || blad.code;
+
+// Eén tegel van een kaart op het punt (zoom 15), om vooraf te testen of de scan bereikbaar is.
+export function tegelOp(id, lat, lon, z = 15) {
+  const n = 2 ** z, r = lat * Math.PI / 180;
+  const x = Math.floor((lon + 180) / 360 * n), y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+  return tegels(id).replace('{z}', z).replace('{x}', x).replace('{y}', y);
+}
+// Proeftegels per bron (server van de scan): de eerste kaart van elke bron. Geeft die tegel een Allmaps-fout met een
+// status van 500 of hoger (de server ligt plat), dan gelden alle kaarten van die bron als onbereikbaar.
+export function proefkaarten(lijst) {
+  const perBron = new Map();
+  for (const kaart of lijst) if (kaart.bron && !perBron.has(kaart.bron)) perBron.set(kaart.bron, kaart);
+  return [...perBron.values()];
+}
+export function bronFout(headers) {
+  if (!headers.get('X-Allmaps-Error')) return null;
+  const status = Number(headers.get('X-Allmaps-Error-Status') ?? 0);
+  return { status, melding: headers.get('X-Allmaps-Error-Message') ?? 'fout', bronPlat: status >= 500 };
+}
+// Volgnummer alleen bij echte duplicaten: dezelfde titel én hetzelfde jaar (andere scans van dezelfde kaart).
+export function metVolgnummer(lijst) {
+  const gezien = new Map();
+  return lijst.map(kaart => {
+    const sleutel = `${kaart.titel}|${kaart.jaar ?? ''}`, n = (gezien.get(sleutel) ?? 0) + 1;
+    gezien.set(sleutel, n);
+    return { ...kaart, naam: n > 1 ? `${kaart.titel} (${n})` : kaart.titel };
+  });
+}
 
 export const kaartLabel = kaart => `${kaart.jaar ? `${kaart.jaar} · ` : ''}${kaart.titel}`;
 // Eerste keus: een Bonneblad (1:25.000, nauwkeurig geplaatst), anders de oudste kaart.

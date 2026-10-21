@@ -5,7 +5,7 @@ import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, withinCl
 import { WKT_FIELD, GELEEND_FIELD, mapGeometryFor } from '../web/geo.js';
 import { zonderFunctiecode } from '../web/search.js';
 import { readFileSync } from 'node:fs';
-import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl, minuutplanUrl, minuutplannen, minuutplanLabel } from '../web/oude-kaarten.js';
+import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl, tegelOp, proefkaarten, bronFout, metVolgnummer, minuutplanUrl, minuutplannen, minuutplanLabel } from '../web/oude-kaarten.js';
 
 const kw = key => `${fields[key]}.keyword`;
 test('Zoeken (query) en filteren (post_filter) blijven gescheiden; facetten tellen zonder hun eigen filter', () => {
@@ -147,7 +147,7 @@ test('Oude kaarten: de index in web/ heeft het verwachte formaat', async () => {
   const { readFile } = await import('node:fs/promises');
   const index = JSON.parse(await readFile(new URL('../web/oude-kaarten.json', import.meta.url), 'utf8'));
   assert.ok(index.kaarten.length > 1000);
-  assert.ok(index.kaarten.every(([id, titel, c, , bbox, ringen]) => /^[0-9a-f]{16}$/.test(id) && titel && index.collecties[c] && bbox.length === 4 && ringen.length));
+  assert.ok(index.kaarten.every(([id, titel, c, , bbox, ringen, bron]) => /^[0-9a-f]{16}$/.test(id) && titel && index.collecties[c] && bbox.length === 4 && ringen.length && index.bronnen[bron]));
   // Bergkerk Deventer ligt op een Bonneblad.
   assert.ok(kaartenOp(index, 52.2508, 6.1601).some(k => k.titel.startsWith('Bonneblad')));
 });
@@ -170,4 +170,19 @@ test('Minuutplans: WFS-vraag rond het punt, alleen bladen die het punt bevatten,
   assert.equal(bladen[0].url, null);
   assert.equal(minuutplanLabel(bladen[1]), 'Amsterdam, sectie G, blad 01');
   assert.deepEqual(minuutplannen({}, 52, 5), []);
+});
+test('Oude kaarten: volgnummer alleen bij dezelfde titel en hetzelfde jaar; proeftegel per bron', () => {
+  const lijst = [
+    { id: 'a', titel: 'Bonneblad 203 Diever', jaar: 1925, bron: 'dlc.services' },
+    { id: 'b', titel: 'Bonneblad 203 Diever', jaar: 1934, bron: 'dlc.services' },
+    { id: 'c', titel: 'Waterstaatskaart: Steenwijk', jaar: null, bron: 'objects.library.uu.nl' },
+    { id: 'd', titel: 'Waterstaatskaart: Steenwijk', jaar: null, bron: 'objects.library.uu.nl' },
+  ];
+  assert.deepEqual(metVolgnummer(lijst).map(k => k.naam), ['Bonneblad 203 Diever', 'Bonneblad 203 Diever', 'Waterstaatskaart: Steenwijk', 'Waterstaatskaart: Steenwijk (2)']);
+  assert.deepEqual(proefkaarten(lijst).map(k => k.id), ['a', 'c']);
+  assert.equal(tegelOp('002dac72fa326c9e', 52.2508, 6.1601), 'https://allmaps.xyz/maps/002dac72fa326c9e/15/16944/10786.png');
+  const kop = waarden => ({ get: naam => waarden[naam] ?? null });
+  assert.equal(bronFout(kop({})), null);
+  assert.deepEqual(bronFout(kop({ 'X-Allmaps-Error': 'source-info', 'X-Allmaps-Error-Status': '502', 'X-Allmaps-Error-Message': 'Could not load source metadata' })), { status: 502, melding: 'Could not load source metadata', bronPlat: true });
+  assert.equal(bronFout(kop({ 'X-Allmaps-Error': 'x', 'X-Allmaps-Error-Status': '404' })).bronPlat, false);
 });
