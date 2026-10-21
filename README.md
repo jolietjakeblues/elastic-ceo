@@ -37,7 +37,7 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`construct/maak-delen.mjs`](construct/maak-delen.mjs) | Maakt de 7 delen uit `alles.rq`; kan grote klassen ook kleiner splitsen |
 | [`triply/elastic-service.json`](triply/elastic-service.json) | Configuratie van de Elasticsearch-service (index template); niet met de hand bewerken |
 | [`triply/maak-service.mjs`](triply/maak-service.mjs) | Maakt `elastic-service.json`: velden per type, Nederlandse analyse uit `nl-analyse.json` |
-| [`triply/nl-analyse.json`](triply/nl-analyse.json) | Analyzers, filters en normalizer: die van `Erfgoed-sdo-nl3`, aangepast voor archeologie |
+| [`triply/nl-analyse.json`](triply/nl-analyse.json) | Analyzers, filters en normalizers: die van `Erfgoed-sdo-nl3`, aangepast voor archeologie. Sinds 21 oktober de bron voor alle demo's (nl5); elastic-erfgoed en elastic-archeologie hebben een kopie |
 | [`triply/nl-analyse-nl3.json`](triply/nl-analyse-nl3.json) | Ongewijzigde kopie van de analyse in `Erfgoed-sdo-nl3`, alleen voor de vergelijking |
 | [`triply/dataset-beschrijving.md`](triply/dataset-beschrijving.md) | Beschrijving van de dataset, om in TriplyDB te plakken |
 | [`docs/website.md`](docs/website.md) | De zoekwebsite: wat hij kan, hoe je hem start en test, wat anders is dan de SDO-demo |

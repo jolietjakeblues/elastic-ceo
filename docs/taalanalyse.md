@@ -44,6 +44,14 @@ De splitser (`dictionary_decompounder`) zoekt een woord uit de lijst overal in e
 
 "P.J.H.Cuypers" en "St.Jan" blijven één token (`p.j.h.cuypers`), omdat de tokenizer (Unicode-woordgrenzen) niet splitst op een punt tussen twee letters. Zoeken op *cuypers* vond daardoor het Centraal Station in Amsterdam (RM 32455) niet: "door P.J.H.Cuypers gebouwd". Gevonden op 21 oktober 2026; in de live service gaf `p.j.h.cuypers` 25 objecten die *cuypers* niet vindt. `Erfgoed-sdo-nl4` (en nl3) in elastic-erfgoed heeft hetzelfde probleem.
 
+### 6. Valse kuil en haard
+
+Met `kuil` en `haard` in de samenstellingenlijst vond *kuil* ook "Ter Kuile" (architecten), "kuiler", "Kuilenburg" en "kerkuil", en *haard* ook "Haardijk", "Schaardijk" en "geschaard". Gevonden op 21 oktober 2026 bij de vergelijking op de erfgoed-sdo-data. Drie tekenfilters maken die woorden vooraf onherkenbaar voor de splitser, zoals bij dakkapel: `geen_kuile` (`kuile` niet gevolgd door n), `geen_kuilenburg` (Kuilenburg, kerkuil) en `geen_haardijk` (Haardijk, Schaardijk, geschaard). Kuilen, kuiltje, paalkuilen en haardkuil blijven gewoon.
+
+## Eén analyse voor alle demo's (nl5)
+
+Dit bestand, [`triply/nl-analyse.json`](../triply/nl-analyse.json), is sinds 21 oktober 2026 de bron voor de taalanalyse van alle demo's. elastic-erfgoed (`Erfgoed-sdo-nl5`) en elastic-archeologie (`Archeologie-sdo-nl5`) hebben een kopie, en een script `triply/maak-nl5.mjs` dat hun template met deze analyse maakt. Lokaal getest op alle 68.078 erfgoed-sdo-documenten en op 88.025 archeologie-sdo-documenten; de uitkomsten staan in hun README (*Versie 5*). De normalizer `zonder_functiecode` staat er ook in, maar alleen de CHO-demo gebruikt hem.
+
 ## Wat er veranderd is
 
 TriplyDB laat geen scripts toe in een analyzer. Een eerste versie gebruikte `condition`-filters (Painless) die per woord bepaalden of er gesplitst werd. Bij het aanmaken van een service gaf dat *cannot execute scripts using [analysis] context*. De huidige versie gebruikt daarom alleen standaardfilters, zonder scripts.
@@ -51,7 +59,7 @@ TriplyDB laat geen scripts toe in een analyzer. Een eerste versie gebruikte `con
 | Onderdeel | nl3 | ceo-elastic |
 |---|---|---|
 | normalizer | `soort` | ook `zonder_functiecode` (21 oktober) op `.keyword` van functie, hoofdfunctie, oorspronkelijkeFunctie, huidigeFunctie, type en typegroep: de tekenfilter `geen_functiecode` haalt de code van de oude functie-indeling weg ("Woonhuis(K)", "Boerderij (M1)", "Kazemat (B10)", "Gerechtsgebouw(EX3)", "Veldoven(TFU1)" → zonder code). "Lunet(te)", "aardewerk:onbepaald (ROM)" en "paal (element)" blijven staan. Alleen de facet en de filters veranderen; de tekst en `_source` blijven zoals in de bron. |
-| tekenfilters | — | `punt_tussen_letters` (21 oktober): een punt tussen twee letters wordt een spatie, dus "P.J.H.Cuypers" wordt `p j h cuypers`; staat vooraan in alle drie analyzers. `dubbele_punt`: `:` wordt een spatie. `geen_dakkapel`, `geen_kapelaan`, `geen_kapelle`: zie *kapel* hieronder. Alle vier staan in `nl_index` en `nl_zoeken`, alleen `dubbele_punt` ook in `nl_exact`. |
+| tekenfilters | — | `geen_kuile`, `geen_kuilenburg`, `geen_haardijk` (21 oktober): zie *Valse kuil en haard*; in `nl_index` en `nl_zoeken`. `punt_tussen_letters` (21 oktober): een punt tussen twee letters wordt een spatie, dus "P.J.H.Cuypers" wordt `p j h cuypers`; staat vooraan in alle drie analyzers. `dubbele_punt`: `:` wordt een spatie. `geen_dakkapel`, `geen_kapelaan`, `geen_kapelle`: zie *kapel* hieronder. Alle vier staan in `nl_index` en `nl_zoeken`, alleen `dubbele_punt` ook in `nl_exact`. |
 | samenstellingen (`nl_samenstellingen`) | 32 woorden, waaronder `terp` en `kapel` | `terp` eruit; `kuil`, `greppel`, `aardewerk`, `keramiek`, `haard` en `schrabber` erbij (37 woorden) |
 | meervouden (`nl_meervoud`) | 7 regels | 12 regels erbij: paalgat, paalspoor, graf/graven, crematiegraf, inhumatiegraf, vlakgraf, familiegraf, kindergraf, diergraf, dierengraf, urnenveld, grafveld |
 | volgorde in `nl_index` | eerst splitsen, dan meervoud | meervoud, splitsen, meervoud. De tweede ronde zorgt dat een afgesplitst deel dezelfde vorm krijgt als bij zoeken (`molen` uit *windmolens* blijft `molen`). |
@@ -149,6 +157,7 @@ Wat de tabel laat zien:
 - **monumentwoorden** (*kerk, molen, toren, kasteel, fort, boerderij, woning, dijk, grafmonument, waterpomp, Lekkerkerk, Kerkstraat*): hetzelfde aantal als bij nl3.
 - **kom, grape, onbepaald:** in deze steekproef nauwelijks verschil, omdat er weinig labels met een dubbele punt in staan. Met `_analyze` is gecontroleerd dat het filter werkt: "roodbakkend aardewerk:kom" wordt nu `roodbak aardewerk aardewerk kom`, eerst was het `roodbak aardewerk:kom`.
 
+- **kuil, haard** (21 oktober, na de tekenfilters voor valse kuil en haard): *kuil* 1.325 → 1.318 en *haard* 118 → 116 (kuiler en Haardijk vallen weg); *Kuile* en *haardijk* vinden zichzelf nog.
 - **cuypers** (21 oktober, na `punt_tussen_letters`): 49 → 51 treffers in het corpus. De andere zoekwoorden in de tabel bleven gelijk. In de lokale test (`tests/lokaal-elastic.mjs`) vindt `(cuijpers OR cuypers) AND station` nu RM 32455.
 
 ## Kanttekeningen

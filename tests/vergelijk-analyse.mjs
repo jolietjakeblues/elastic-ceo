@@ -13,11 +13,14 @@ if (!corpus) throw new Error('gebruik: node tests/vergelijk-analyse.mjs <corpus.
 const lees = f => JSON.parse(readFileSync(new URL(f, import.meta.url), 'utf8'));
 const service = lees('../triply/elastic-service.json');
 const ANALYSES = { nl3: lees('../triply/nl-analyse-nl3.json'), nieuw: lees('../triply/nl-analyse.json') };
+// De mappings gebruiken de normalizer zonder_functiecode, die nl3 niet heeft: neem die (en zijn tekenfilter) over.
+ANALYSES.nl3.normalizer = { ...ANALYSES.nieuw.normalizer, ...ANALYSES.nl3.normalizer };
+ANALYSES.nl3.char_filter = { geen_functiecode: ANALYSES.nieuw.char_filter.geen_functiecode, ...ANALYSES.nl3.char_filter };
 
 // Elk zoekwoord met een korte reden; groep "monument" moet gelijk blijven of beter worden.
 const VRAGEN = [
   ['archeologie', 'terp'], ['archeologie', 'terpen'], ['archeologie', 'wierde'], ['archeologie', 'paal'],
-  ['archeologie', 'paalgat'], ['archeologie', 'paalgaten'], ['archeologie', 'kuil'], ['archeologie', 'greppel'],
+  ['archeologie', 'paalgat'], ['archeologie', 'paalgaten'], ['archeologie', 'kuil'], ['monument', 'Kuile'], ['monument', 'haardijk'], ['archeologie', 'greppel'],
   ['archeologie', 'graf'], ['archeologie', 'graven'], ['archeologie', 'crematiegraven'], ['archeologie', 'urnenvelden'],
   ['archeologie', 'hunebed'], ['archeologie', 'aardewerk'], ['archeologie', 'keramiek'], ['archeologie', 'haard'],
   ['archeologie', 'schrabber'], ['archeologie', 'scherven'], ['archeologie', 'waterput'], ['archeologie', 'kom'], ['archeologie', 'grape'], ['archeologie', 'onbepaald'],
