@@ -115,7 +115,7 @@ Eigen geometrie (`geo:asWKT`) wordt als punt of vlak getekend. Objecten zonder e
 
 ### Oude kaarten (Allmaps)
 
-Bij elk resultaat met een locatie staat de knop **Oude kaarten**. Die zoomt naar het object (bij een los object tot zoom 16) en legt er een gegeorefereerde historische kaart uit [Allmaps](https://allmaps.org/) overheen. Rechtsboven in de kaart staat een paneel met een keuzelijst van alle kaarten op die plek (op jaar, oudste eerst), een schuif voor de dekking en een link naar de hele kaart in de Allmaps-viewer. Als er een Bonneblad is, wordt dat eerst getoond. Dezelfde aanpak als in [Dodenakkers](https://github.com/jolietjakeblues/dodenakkers) en [Joodse begraafplaatsen](https://github.com/jolietjakeblues/joodse-begraafplaatsen).
+Bij elk resultaat met een locatie staat de knop **Oude kaarten**. Die zoomt naar het object (bij een los object tot zoom 16) en legt er een gegeorefereerde historische kaart uit [Allmaps](https://allmaps.org/) overheen. Rechtsboven in de kaart staat een paneel met een scrollbare lijst van alle kaarten op die plek (jaar, titel over hooguit twee regels en collectie; op jaar, oudste eerst), een schuif voor de dekking en een link naar de hele kaart in de Allmaps-viewer. Eerst was dat een `<select>`, maar bij 105 kaarten (Centraal Station) bleef het uitklapmenu leeg en waren lange titels niet te lezen. Als er een Bonneblad is, wordt dat eerst getoond. Dezelfde aanpak als in [Dodenakkers](https://github.com/jolietjakeblues/dodenakkers) en [Joodse begraafplaatsen](https://github.com/jolietjakeblues/joodse-begraafplaatsen).
 
 | Onderdeel | Hoe |
 |---|---|
@@ -124,6 +124,11 @@ Bij elk resultaat met een locatie staat de knop **Oude kaarten**. Die zoomt naar
 | Jaartal | Bonnebladen uit [`allmaps/bonnebladen_jaren.csv`](../allmaps/bonnebladen_jaren.csv) (overgenomen uit Joodse begraafplaatsen), anders een jaartal in de titel |
 | Welke kaarten op een plek | in de browser: punt-in-vlak op de omtrek, voor het (zwaarte)punt van het object ([`web/oude-kaarten.js`](../web/oude-kaarten.js)) |
 | Kaartbeeld | Leaflet-tegellaag `https://allmaps.xyz/maps/{id}/{z}/{x}/{y}.png` (Allmaps Tile Server), alleen binnen de omtrek, tot zoom 18 |
+| Onbereikbare scan | Is de scan bij de collectie onbereikbaar, dan geeft de tile server toch een tegel (HTTP 200) met "ALLMAPS ERROR" erop, en de kop `X-Allmaps-Error`. De website haalt de tegels daarom met `fetch` op (`AllmapsLaag` in `web/app.js`), toont zo'n tegel niet, en meldt in het paneel dat de scan nu niet bereikbaar is; de kaart staat dan doorgestreept in de lijst. Op 21 oktober 2026 gaf de Universiteitsbibliotheek Utrecht 502. |
+
+Onder de lijst staan de **kadastrale minuutplans** (1811–1832) op die plek: per blad gemeente, sectie en blad, met een link naar de scan in de RCE-beeldbank. Ze komen uit de WFS van de RCE (`https://services.rce.geovoorziening.nl/misc/wfs`, laag `misc:Minuutplanbegrenzingen`, CORS `*`), dezelfde bron als in [WatWasHier](https://github.com/jolietjakeblues/WatWasHier). De website vraagt een kleine bbox (±0,0005°) rond het punt en houdt alleen bladen over waarvan het vlak het punt bevat; bladen met `MPAANWEZIG` = `nee` vallen weg, en links gaan alleen naar `beeldbank.cultureelerfgoed.nl` (via https). Code: `minuutplanUrl` en `minuutplannen` in `web/oude-kaarten.js`, `minuutplanBlok` in `web/app.js`. Voorbeelden: Centraal Station Amsterdam → Amsterdam, sectie G, blad 03; hunebed D2 (geleende locatie in Norg) → Norg, sectie M, blad 01. De scans zelf zijn niet gegeorefereerd, dus geen laag op de kaart.
+
+De Waterstaatskaart-bladen van de [Watertijdreis](https://watertijdreis.nl/) (957 bladen, 5 edities, 1865–1991), die WatWasHier ook gebruikt, zitten er niet in: ze staan niet in de Allmaps-API (de tile server kan ze dus niet tonen) en alle scans staan bij de UB Utrecht, die op 21 oktober 2026 503 gaf.
 
 Stand 21 oktober 2026: 5.302 van de 66.091 kaarten in de dump, vooral TU Delft Library (3.459, waaronder de Bonnebladen), UB Utrecht (408), 4TU.ResearchData (394) en UB Amsterdam (344). Het bestand is 1,1 MB (ca. 300 kB ingepakt) en wordt pas geladen bij de eerste klik.
 
@@ -153,7 +158,7 @@ Een lokale kopie van de dump kan ook: `node allmaps/maak-oude-kaarten.mjs pad/na
 
 ## Beveiliging en publicatie
 
-Zoals in de SDO-demo ([`web/_headers`](../web/_headers)): Content-Security-Policy, `frame-ancestors 'none'`, `noindex`, en geen HTML uit de bron in de pagina. Links gaan alleen naar http(s) en bekende registers, CSV-cellen worden beschermd tegen formules, en een schuine streep in de zoekvraag wordt geen reguliere expressie. Nieuw in de CSP: `img-src https://images.memorix.nl` voor de thumbnails en `https://allmaps.xyz` voor de oude kaarten. De Allmaps-id's uit `oude-kaarten.json` moeten 16 hexadecimale tekens zijn; andere worden overgeslagen.
+Zoals in de SDO-demo ([`web/_headers`](../web/_headers)): Content-Security-Policy, `frame-ancestors 'none'`, `noindex`, en geen HTML uit de bron in de pagina. Links gaan alleen naar http(s) en bekende registers, CSV-cellen worden beschermd tegen formules, en een schuine streep in de zoekvraag wordt geen reguliere expressie. Nieuw in de CSP: `img-src https://images.memorix.nl` voor de thumbnails `https://services.rce.geovoorziening.nl` (`connect-src`) voor de minuutplans, en `https://allmaps.xyz` voor de oude kaarten (ook in `connect-src`, omdat de tegels met `fetch` worden opgehaald, en `blob:` in `img-src`). De Allmaps-id's uit `oude-kaarten.json` moeten 16 hexadecimale tekens zijn; andere worden overgeslagen.
 
 ## Online zetten
 

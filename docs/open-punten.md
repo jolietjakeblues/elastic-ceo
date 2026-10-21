@@ -7,12 +7,14 @@ Stand van 21 oktober 2026.
 - **Volledige run:** 7 query-jobs, één per klasse ([`construct/delen/`](../construct/delen/), zie [schema.md](schema.md#in-7-queries-één-per-klasse)), samen ongeveer 3 uur. De resultaten staan in `rce/erfgoed`: 23.847.404 statements in 7 graphs. Eén job met de hele query (`rce/alles-ceo-elastic/2`) was te traag: na ongeveer 4 uur stond die op 5%.
 - **Index template zonder scripts:** de eerste versie met `condition`-filters gaf bij TriplyDB *cannot execute scripts using [analysis] context*. De huidige [`triply/elastic-service.json`](../triply/elastic-service.json) gebruikt alleen standaardfilters en is lokaal getest (zie [taalanalyse.md](taalanalyse.md) en [elastic-document.md](elastic-document.md#lokaal-testen)).
 - **Service aangemaakt:** `Erfgoed-ceo` op `rce/erfgoed` (21 oktober), status *running*, 1.209.366 documenten. De commando's staan in de README, onder *Service aanmaken en controleren*.
+- **Service opnieuw aangemaakt** (21 oktober, avond) met `punt_tussen_letters` en `zonder_functiecode`: `npm run test:live` volledig gelukt; *cuypers AND station* vindt het Centraal Station en de facet functie heeft geen codes meer.
 - **Workers Builds:** gekoppeld (21 oktober); elke push naar `main` zet de website online.
 - **Zoekwebsite:** online op <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/> (zie [website.md](website.md)).
 
 ## Te doen
 
-0. **Service opnieuw aanmaken** voor twee wijzigingen in de template (21 oktober, zie [taalanalyse.md](taalanalyse.md)): de tekenfilter `punt_tussen_letters` (zonder die filter vindt *cuypers* niet "P.J.H.Cuypers", Centraal Station Amsterdam) en de normalizer `zonder_functiecode` (de facet functie zonder "(K)", "(M1)" enz.). De 7 query-jobs hoeven niet opnieuw: de data in `rce/erfgoed` blijft gelijk, alleen de index wordt opnieuw opgebouwd. `triply/elastic-service.json` is bijgewerkt en lokaal getest; verwijder `Erfgoed-ceo` en maak hem opnieuw aan (README, *Service aanmaken en controleren*). `npm run test:live` controleert het daarna. Dezelfde reparatie is nodig in de SDO-demo (elastic-erfgoed): `Erfgoed-sdo-nl4` (en nl3) geeft live ook 25 objecten voor `p.j.h.cuypers`.
+0. **Eén taalanalyse voor alle demo's (nl5).** [`triply/nl-analyse.json`](../triply/nl-analyse.json) is de bron; elastic-erfgoed en elastic-archeologie hebben een kopie en een script `triply/maak-nl5.mjs`. Hun nl5-templates zijn voorbereid en lokaal getest (zie hun README, *Versie 5*), maar nog niet aangemaakt. Na een wijziging hier: de kopieën bijwerken en daar `node triply/maak-nl5.mjs` draaien.
+   - De tekenfilters voor valse *kuil* en *haard* (Ter Kuile, Kuilenburg, kerkuil, Haardijk) kwamen erbij nadat `Erfgoed-ceo` opnieuw was aangemaakt. De live service heeft ze dus nog niet; ze komen mee bij de volgende keer dat de service opnieuw wordt aangemaakt. Het verschil is klein: in het testcorpus *kuil* 1.325 → 1.318.
 
 1. **Controles** als de service op *running* staat:
    - Het aantal documenten per soort is gelijk aan de tabel in [cho-data.md](cho-data.md).

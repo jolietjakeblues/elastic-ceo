@@ -5,7 +5,7 @@ import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, withinCl
 import { WKT_FIELD, GELEEND_FIELD, mapGeometryFor } from '../web/geo.js';
 import { zonderFunctiecode } from '../web/search.js';
 import { readFileSync } from 'node:fs';
-import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl } from '../web/oude-kaarten.js';
+import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl, minuutplanUrl, minuutplannen, minuutplanLabel } from '../web/oude-kaarten.js';
 
 const kw = key => `${fields[key]}.keyword`;
 test('Zoeken (query) en filteren (post_filter) blijven gescheiden; facetten tellen zonder hun eigen filter', () => {
@@ -150,4 +150,24 @@ test('Oude kaarten: de index in web/ heeft het verwachte formaat', async () => {
   assert.ok(index.kaarten.every(([id, titel, c, , bbox, ringen]) => /^[0-9a-f]{16}$/.test(id) && titel && index.collecties[c] && bbox.length === 4 && ringen.length));
   // Bergkerk Deventer ligt op een Bonneblad.
   assert.ok(kaartenOp(index, 52.2508, 6.1601).some(k => k.titel.startsWith('Bonneblad')));
+});
+test('Minuutplans: WFS-vraag rond het punt, alleen bladen die het punt bevatten, alleen links naar de beeldbank', () => {
+  const url = new URL(minuutplanUrl(52.379, 4.9));
+  assert.equal(url.origin + url.pathname, 'https://services.rce.geovoorziening.nl/misc/wfs');
+  assert.equal(url.searchParams.get('typeNames'), 'misc:Minuutplanbegrenzingen');
+  assert.equal(url.searchParams.get('bbox'), '4.8995,52.3785,4.9005,52.3795,EPSG:4326');
+  const vlak = [[[[4.89, 52.37], [4.91, 52.37], [4.91, 52.39], [4.89, 52.39], [4.89, 52.37]]]];
+  const ernaast = [[[[4.95, 52.37], [4.97, 52.37], [4.97, 52.39], [4.95, 52.37]]]];
+  const json = { features: [
+    { geometry: { type: 'MultiPolygon', coordinates: vlak }, properties: { CODE: 'MIN07005G01', GEMEENTE: 'Amsterdam', SECTIE: 'G', BLAD: '01', MPAANWEZIG: '', URL: 'http://beeldbank.cultureelerfgoed.nl/rce-mediabank/detail/a7603542' } },
+    { geometry: { type: 'MultiPolygon', coordinates: vlak }, properties: { CODE: 'MIN07005F02', GEMEENTE: 'Amsterdam', SECTIE: 'F', BLAD: '02', URL: 'https://example.org/x' } },
+    { geometry: { type: 'MultiPolygon', coordinates: vlak }, properties: { CODE: 'MIN0X', MPAANWEZIG: 'nee' } },
+    { geometry: { type: 'MultiPolygon', coordinates: ernaast }, properties: { CODE: 'MIN0Y' } },
+  ] };
+  const bladen = minuutplannen(json, 52.379, 4.9);
+  assert.deepEqual(bladen.map(b => b.code), ['MIN07005F02', 'MIN07005G01']);
+  assert.equal(bladen[1].url, 'https://beeldbank.cultureelerfgoed.nl/rce-mediabank/detail/a7603542');
+  assert.equal(bladen[0].url, null);
+  assert.equal(minuutplanLabel(bladen[1]), 'Amsterdam, sectie G, blad 01');
+  assert.deepEqual(minuutplannen({}, 52, 5), []);
 });

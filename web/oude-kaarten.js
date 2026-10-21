@@ -27,6 +27,33 @@ export function kaartenOp(index, lat, lon) {
   return result;
 }
 
+// Kadastrale minuutplans (1811-1832) uit de WFS van de RCE: de bladgrenzen, met een link naar de scan in de beeldbank.
+// De WFS zoekt op een kleine bbox (lon, lat) rond het punt; daarna telt alleen een blad waarvan het vlak het punt bevat.
+export const MINUUTPLANS_WFS = 'https://services.rce.geovoorziening.nl/misc/wfs';
+export function minuutplanUrl(lat, lon) {
+  const d = 0.0005, url = new URL(MINUUTPLANS_WFS), r = x => Number(x.toFixed(6));
+  [lat, lon] = [Number(lat), Number(lon)];
+  for (const [key, value] of Object.entries({ service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: 'misc:Minuutplanbegrenzingen', outputFormat: 'application/json', srsName: 'EPSG:4326', count: '50', bbox: `${r(lon - d)},${r(lat - d)},${r(lon + d)},${r(lat + d)},EPSG:4326` })) url.searchParams.set(key, value);
+  return url.href;
+}
+// Alleen links naar de beeldbank van de RCE, altijd via https.
+const beeldbankUrl = value => {
+  try { const url = new URL(String(value)); return url.hostname === 'beeldbank.cultureelerfgoed.nl' ? `https://${url.host}${url.pathname}` : null; } catch { return null; }
+};
+const inVlak = (geometry, lon, lat) => {
+  const polygonen = geometry?.type === 'Polygon' ? [geometry.coordinates] : geometry?.type === 'MultiPolygon' ? geometry.coordinates : [];
+  return polygonen.some(([buiten]) => Array.isArray(buiten) && inRing(buiten.flat(), lon, lat));
+};
+export function minuutplannen(json, lat, lon) {
+  const bladen = new Map();
+  for (const { geometry, properties: p = {} } of json?.features ?? []) {
+    if (!p.CODE || bladen.has(p.CODE) || p.MPAANWEZIG === 'nee' || !inVlak(geometry, lon, lat)) continue;
+    bladen.set(p.CODE, { code: String(p.CODE), gemeente: String(p.GEMEENTE ?? ''), sectie: String(p.SECTIE ?? ''), blad: String(p.BLAD ?? ''), url: beeldbankUrl(p.URL) });
+  }
+  return [...bladen.values()].sort((a, b) => a.code.localeCompare(b.code));
+}
+export const minuutplanLabel = blad => [blad.gemeente, blad.sectie && `sectie ${blad.sectie}`, blad.blad && `blad ${blad.blad}`].filter(Boolean).join(', ') || blad.code;
+
 export const kaartLabel = kaart => `${kaart.jaar ? `${kaart.jaar} · ` : ''}${kaart.titel}`;
 // Eerste keus: een Bonneblad (1:25.000, nauwkeurig geplaatst), anders de oudste kaart.
 export const eersteKeus = lijst => lijst.find(kaart => kaart.titel.startsWith('Bonneblad ')) ?? lijst[0];

@@ -1,6 +1,6 @@
 import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, partsClause, withinClause, nearClause, inhoudClause, gebiedenListQuery, ligtInQuery, AFSTANDEN, IN_SOORTEN, ROND_SOORTEN, bucketsOf, search, facets, fields, sorts, soorten, soortVan, nummerVan, values, textValue, safeUrl, registerLink, afbeeldingUrl, toParams, fromParams, describe, toCsv, zonderFunctiecode, MET_FUNCTIECODE, jaartal, jaarBereik, JAARMODI, searchFields, DEFAULT_FIELD, PAGE_SIZE, MAX_WINDOW, EXPORT_MAX } from './search.js';
 import { geometryFor, mapGeometryFor, WKT_FIELD } from './geo.js';
-import { OUDE_KAARTEN_URL, tegels, viewerUrl, kaartenOp, kaartLabel, eersteKeus } from './oude-kaarten.js';
+import { OUDE_KAARTEN_URL, tegels, viewerUrl, kaartenOp, kaartLabel, eersteKeus, minuutplanUrl, minuutplannen, minuutplanLabel } from './oude-kaarten.js';
 const $ = id => document.getElementById(id);
 const blank = () => ({ query: '', field: DEFAULT_FIELD, filters: {}, jaar: {}, page: 0, sort: 'relevantie', binnen: null, jokers: state?.jokers ?? false });
 let state; state = blank();
@@ -272,12 +272,61 @@ function oudeKaartPaneel() {
   oudePaneel = new (L.Control.extend({ onAdd() { const box = el('div', null, 'oude-kaart'); L.DomEvent.disableClickPropagation(box); L.DomEvent.disableScrollPropagation(box); return box; } }))({ position: 'topright' }).addTo(map);
   return oudePaneel.getContainer();
 }
-function toonOudeLaag(kaart, bron) {
+// Tegels via fetch: is de scan bij de collectie onbereikbaar, dan geeft de Allmaps Tile Server toch een tegel (HTTP 200)
+// met een foutmelding erop, en de kop X-Allmaps-Error. Die tegel tonen we niet, en we tellen hem.
+const AllmapsLaag = window.L ? L.TileLayer.extend({
+  createTile(coords, done) {
+    const img = document.createElement('img'); img.alt = ''; img.setAttribute('role', 'presentation');
+    fetch(this.getTileUrl(coords)).then(res => {
+      if (res.headers.get('X-Allmaps-Error')) {
+        this.bronfout = `${res.headers.get('X-Allmaps-Error-Message') ?? 'fout'}, ${res.headers.get('X-Allmaps-Error-Status') ?? res.status}`;
+        throw new Error(this.bronfout);
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      img.onload = () => { URL.revokeObjectURL(url); this.goed = (this.goed ?? 0) + 1; done(null, img); };
+      img.onerror = () => { URL.revokeObjectURL(url); done(new Error('geen beeld'), img); };
+      img.src = url;
+    }).catch(error => done(error, img));
+    return img;
+  },
+}) : null;
+function toonOudeLaag(kaart, bron, status, knop) {
   oudeLaag?.remove();
   const [x0, y0, x1, y1] = kaart.bbox;
   // De tile server rekent elke tegel uit; boven zoom 18 vergroot Leaflet zelf. Buiten de omtrek worden geen tegels gevraagd.
-  oudeLaag = L.tileLayer(tegels(kaart.id), { maxNativeZoom: 18, maxZoom: 19, zIndex: 2, opacity: oudeDekking / 100, bounds: [[y0, x0], [y1, x1]], attribution: `Oude kaart: ${escapeHtml(kaart.collectie)} via <a href="https://allmaps.org/" target="_blank" rel="noopener">Allmaps</a>` }).addTo(map);
+  const laag = oudeLaag = new AllmapsLaag(tegels(kaart.id), { maxNativeZoom: 18, maxZoom: 19, zIndex: 2, opacity: oudeDekking / 100, bounds: [[y0, x0], [y1, x1]], attribution: `Oude kaart: ${escapeHtml(kaart.collectie)} via <a href="https://allmaps.org/" target="_blank" rel="noopener">Allmaps</a>` });
+  status.textContent = 'Kaart laden…';
+  // Pas als alle tegels in beeld binnen zijn: geen enkele gelukt en wel een bronfout, dan is de scan nu onbereikbaar.
+  laag.on('load', () => {
+    if (laag !== oudeLaag) return;
+    const kapot = !laag.goed && laag.bronfout;
+    status.textContent = kapot ? `Deze scan is nu niet bereikbaar bij ${kaart.collectie} (${laag.bronfout}). Kies een andere kaart of probeer het later.` : '';
+    knop.classList.toggle('onbereikbaar', Boolean(kapot));
+  });
+  laag.addTo(map);
   bron.replaceChildren(document.createTextNode(`${kaart.collectie}${kaart.jaar ? ` · ${kaart.jaar}` : ''} · `), link('hele kaart in Allmaps', viewerUrl(kaart.id)));
+}
+// Kadastrale minuutplans (1811-1832) op deze plek, uit de WFS van de RCE: links naar de scans in de beeldbank.
+// Het blok verschijnt meteen en vult zich zodra de WFS antwoordt.
+function minuutplanBlok(lat, lon) {
+  const blok = el('div', null, 'minuutplans'), kop = el('p');
+  kop.append(el('strong', 'Kadastrale minuutplans'), document.createTextNode(' (1811–1832, RCE)'));
+  const inhoud = el('p', 'Laden…', 'hint'); inhoud.setAttribute('aria-live', 'polite');
+  blok.append(kop, inhoud);
+  fetch(minuutplanUrl(lat, lon), { signal: AbortSignal.timeout(15000) })
+    .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+    .then(json => {
+      const bladen = minuutplannen(json, lat, lon);
+      if (!bladen.length) { inhoud.textContent = 'Geen minuutplan op deze plek.'; return; }
+      const lijst = el('ul');
+      for (const blad of bladen) { const item = el('li'); item.append(blad.url ? link(minuutplanLabel(blad), blad.url) : document.createTextNode(minuutplanLabel(blad))); lijst.append(item); }
+      inhoud.replaceWith(lijst);
+    })
+    .catch(error => { console.error('minuutplans', error); inhoud.textContent = 'De minuutplans konden niet worden opgehaald.'; });
+  return blok;
 }
 async function toonOudeKaarten(id, source) {
   const geometry = mapGeometryFor(source);
@@ -289,22 +338,35 @@ async function toonOudeKaarten(id, source) {
   const box = oudeKaartPaneel(), sluit = button('×', sluitOudeKaart, 'oude-kaart-sluit'); sluit.setAttribute('aria-label', 'Oude kaart sluiten');
   const kop = el('p', null, 'oude-kaart-kop'); kop.append(el('strong', 'Oude kaarten'), document.createTextNode(` bij ${naam}`), sluit);
   box.replaceChildren(kop, el('p', 'Laden…', 'hint'));
+  const minuut = minuutplanBlok(geometry.point.lat, geometry.point.lon);
   let lijst;
   try { lijst = kaartenOp(await laadOudeKaarten(), geometry.point.lat, geometry.point.lon); }
-  catch (error) { console.error(error); box.replaceChildren(kop, el('p', 'De lijst met oude kaarten kon niet worden geladen.', 'hint')); return; }
+  catch (error) { console.error(error); box.replaceChildren(kop, el('p', 'De lijst met oude kaarten kon niet worden geladen.', 'hint'), minuut); return; }
   if (beurt !== oudeBeurt || !oudePaneel) return;
-  if (!lijst.length) { oudeLaag?.remove(); oudeLaag = null; box.replaceChildren(kop, el('p', 'Geen oude kaarten van bekende collecties op deze plek.', 'hint')); return; }
-  const keuze = el('select'); keuze.setAttribute('aria-label', 'Kies een oude kaart');
-  // Meerdere scans met dezelfde titel krijgen een volgnummer.
-  const gezien = new Map();
-  for (const kaart of lijst) { const tekst = kaartLabel(kaart), n = (gezien.get(tekst) ?? 0) + 1; gezien.set(tekst, n); const optie = el('option', n > 1 ? `${tekst} (${n})` : tekst); optie.value = kaart.id; keuze.append(optie); }
+  if (!lijst.length) { oudeLaag?.remove(); oudeLaag = null; box.replaceChildren(kop, el('p', 'Geen oude kaarten van bekende collecties op deze plek.', 'hint'), minuut); return; }
+  // Een eigen lijst in plaats van een <select>: lange titels lopen door op een tweede regel, en een onbereikbare scan
+  // is in de lijst te zien. Meerdere scans met dezelfde titel krijgen een volgnummer.
+  const keuze = el('ul', null, 'oude-lijst'); keuze.setAttribute('aria-label', 'Oude kaarten op deze plek');
+  const bron = el('p', null, 'hint'), status = el('p', null, 'oude-kaart-status'); status.setAttribute('aria-live', 'polite');
+  const knoppen = new Map(), gezien = new Map();
+  const kies = kaart => {
+    for (const [id, knop] of knoppen) knop.setAttribute('aria-pressed', String(id === kaart.id));
+    knoppen.get(kaart.id).scrollIntoView({ block: 'nearest' });
+    toonOudeLaag(kaart, bron, status, knoppen.get(kaart.id));
+  };
+  for (const kaart of lijst) {
+    const n = (gezien.get(kaart.titel) ?? 0) + 1; gezien.set(kaart.titel, n);
+    const knop = button(null, () => kies(kaart));
+    knop.append(el('span', kaart.jaar ?? 'z.j.', 'oude-jaar'), el('span', n > 1 ? `${kaart.titel} (${n})` : kaart.titel, 'oude-titel'), el('span', kaart.collectie, 'oude-collectie'));
+    knop.title = kaartLabel(kaart);
+    knoppen.set(kaart.id, knop);
+    const item = el('li'); item.append(knop); keuze.append(item);
+  }
   const dekking = el('input'); Object.assign(dekking, { type: 'range', min: 0, max: 100, step: 5, value: oudeDekking });
   const dekkingLabel = el('label', 'Dekking '); dekkingLabel.append(dekking);
-  const bron = el('p', null, 'hint');
-  keuze.addEventListener('change', () => toonOudeLaag(lijst.find(kaart => kaart.id === keuze.value), bron));
   dekking.addEventListener('input', () => { oudeDekking = Number(dekking.value); oudeLaag?.setOpacity(oudeDekking / 100); });
-  box.replaceChildren(kop, el('p', `${plural(lijst.length, 'kaart', 'kaarten')} op deze plek, oudste eerst.`, 'hint'), keuze, dekkingLabel, bron);
-  keuze.value = eersteKeus(lijst).id; toonOudeLaag(eersteKeus(lijst), bron);
+  box.replaceChildren(kop, el('p', `${plural(lijst.length, 'kaart', 'kaarten')} op deze plek, oudste eerst.`, 'hint'), keuze, dekkingLabel, status, bron, minuut);
+  kies(eersteKeus(lijst));
 }
 // Een verborgen kaart heeft geen afmetingen; pas passend inzoomen zodra de kaart zichtbaar is.
 function fitMarkers() {

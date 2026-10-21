@@ -60,7 +60,7 @@ function label(v) {
   if (v.startsWith('{')) { try { return label(JSON.parse(v)); } catch { /* gewone tekst */ } }
   v = v.replace(/\s+/g, ' ').replace(/^[ /]+|[ /]+$/g, '');
   // Catalogusnummers en vulteksten (UB Utrecht, BnF).
-  v = v.replace(/\s*KAART: \*.*$/, '').replace(/\s*\*[IVX]+\*\S*(\s*\([^)]*\))?/g, '').replace(/^(page info:?|np|-)$/i, '');
+  v = v.replace(/\s*(\.\.\.\s*)?KAART:.*$/, '').replace(/\s*[/:]?\s*\.\.\.\s*$/, '').replace(/\s*\*[IVX]+\*\S*(\s*\([^)]*\))?/g, '').replace(/^(page info:?|np|-)$/i, '');
   v = v.replace(/:? ?Page Info: ?/g, ' ');
   v = v.replace('Waterstaatskaart van Nederland : op de schaal van 1:50.000', 'Waterstaatskaart van Nederland');
   v = v.replace('NL-HaNA 4.TOPO Topografische Dienst en Rechtsvoorgangers: A6.1 TMK: veldminuten', 'TMK, veldminuut');
@@ -147,7 +147,7 @@ for await (const regel of regels(process.argv[2])) {
   if (bonne && jaren.has(bonne[1])) {
     const [nr, j] = jaren.get(bonne[1]);
     const m = /Blad \d+\w?: (.*)/.exec(blad);
-    titel = `Bonneblad ${nr} ${m ? m[1].replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase()) : ''}`.trim();
+    titel = `Bonneblad ${nr} ${m ? m[1].replace(/\w\S*/g, w => (/^[IVX]+$/i.test(w) ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())) : ''}`.trim();
     jaar = j;
   } else {
     titel = serie && blad && !blad.includes(serie) && !serie.includes(blad) ? `${serie}: ${blad}` : (blad.length > serie.length ? blad : serie);

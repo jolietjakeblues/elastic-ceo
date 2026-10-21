@@ -103,7 +103,10 @@
         "dubbele_punt",
         "geen_dakkapel",
         "geen_kapelaan",
-        "geen_kapelle"
+        "geen_kapelle",
+        "geen_kuile",
+        "geen_kuilenburg",
+        "geen_haardijk"
       ],
       "tokenizer": "standard",
       "filter": [
@@ -123,7 +126,10 @@
         "dubbele_punt",
         "geen_dakkapel",
         "geen_kapelaan",
-        "geen_kapelle"
+        "geen_kapelle",
+        "geen_kuile",
+        "geen_kuilenburg",
+        "geen_haardijk"
       ],
       "tokenizer": "standard",
       "filter": [
@@ -186,6 +192,24 @@
       "type": "pattern_replace",
       "pattern": "\\s*\\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\\)\\s*$",
       "replacement": ""
+    },
+    "geen_kuile": {
+      "type": "pattern_replace",
+      "pattern": "kuile(?!n)",
+      "replacement": "cuile",
+      "flags": "CASE_INSENSITIVE"
+    },
+    "geen_kuilenburg": {
+      "type": "pattern_replace",
+      "pattern": "kuil(?=enburg)|(?<=ker)kuil",
+      "replacement": "cuil",
+      "flags": "CASE_INSENSITIVE"
+    },
+    "geen_haardijk": {
+      "type": "pattern_replace",
+      "pattern": "haard(?=ijk)|(?<=sc)haard",
+      "replacement": "haerd",
+      "flags": "CASE_INSENSITIVE"
     }
   },
   "normalizer": {
