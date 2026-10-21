@@ -38,7 +38,7 @@ npm test
 npm run test:live
 ```
 
-`npm test` test de queryopbouw zonder netwerk ([`tests/web.test.mjs`](../tests/web.test.mjs)): zoeken en filteren, soorten, datering, contexten, opzoeken van kern- en bufferzones, URL, uitleg, CSV, links en kaartgeometrie. `npm run test:live` controleert de echte service ([`tests/live.mjs`](../tests/live.mjs)): CORS, som van de soort-facet, alles in een onderzoeksgebied, binnen Orvelte, datering, en dat *terp* geen waterput vindt.
+`npm test` test de queryopbouw zonder netwerk ([`tests/web.test.mjs`](../tests/web.test.mjs)): zoeken en filteren, soorten, datering, contexten, opzoeken van kern- en bufferzones, URL, uitleg, CSV, links, kaartgeometrie en het zoeken van oude kaarten op een punt (ook in de echte `oude-kaarten.json`). `npm run test:live` controleert de echte service ([`tests/live.mjs`](../tests/live.mjs)): CORS, som van de soort-facet, alles in een onderzoeksgebied, binnen Orvelte, datering, en dat *terp* geen waterput vindt.
 
 ## Wat er anders is dan de SDO-demo
 
@@ -66,11 +66,18 @@ Het **nummer** bij een resultaat is het eigen nummer: monumentnummer, complexnum
 
 Bij *Alles* en *Exact* tellen naam, locatienaam, type, functie en hoofdfunctie 3× zo zwaar (`WEIGHT`). Dat verandert alleen de volgorde.
 
+Functie en type hebben in de bron vaak een code van de oude functie-indeling, met of zonder spatie: "Woonhuis(K)", "Boerderij (M)" naast "Boerderij(M)", "Kazemat (B10)". Vanaf de service met de normalizer `zonder_functiecode` (zie [taalanalyse.md](taalanalyse.md)) staat in de facet alleen "Woonhuis", "Boerderij" enzovoort. Op de resultaatkaart en in de CSV haalt de website de code zelf weg (`zonderFunctiecode` in `web/search.js`, dezelfde regel).
+
 Facetten: soort, provincie, gemeente, juridische status, functie, type, materiaal, periode (begin) en vertrouwelijkheid. Binnen een facet geldt *of*, tussen facetten *en*.
 
 ### Datering
 
-Twee velden, *vanaf* en *tot*, met jaren voor Christus als negatief getal (of "500 v.Chr."). Een object telt mee als zijn datering overlapt: `eindjaar >= vanaf` en `beginjaar <= tot`. Bij archeologie zijn dat de jaren van de ABR-periode, bij monumenten de jaren van gebeurtenissen (bouw, verbouwing, restauratie). Een monument met meerdere gebeurtenissen telt mee als één jaar past. Het filter geldt ook voor de facetten. In de URL: `?van=-12&tot=450`.
+Zoals in de [archeologiedemo](https://elastic-archeologie.jolietjakeblues64.workers.dev/): *Van* en *tot* op één regel, met jaren voor Christus als negatief getal (of "500 v.Chr."), en een keuze:
+
+- **datering valt er (deels) in** (standaard): de datering overlapt, `eindjaar >= van` en `beginjaar <= tot`.
+- **datering valt er helemaal in**: het object is gedateerd en geen `beginjaar < van` en geen `eindjaar > tot` (`must_not`). Brede dateringen als Prehistorie – Nieuwe Tijd vallen dan weg. Bij een monument met meerdere gebeurtenissen moeten ze er allemaal in vallen.
+
+Live op 21 oktober 2026: aardewerk bij vondsten, -12 tot 450, geeft 47.901 (deels) en 27.548 (helemaal) treffers. Bij archeologie zijn dat de jaren van de ABR-periode, bij monumenten de jaren van gebeurtenissen (bouw, verbouwing, restauratie). Een monument met meerdere gebeurtenissen telt mee als één jaar past. Het filter geldt ook voor de facetten. In de URL: `?van=-12&tot=450`, met `&jaarmodus=binnen` voor *helemaal*.
 
 Extra sorteringen: *Oudste eerst* (beginjaar) en *Jongste eerst* (eindjaar).
 
@@ -106,6 +113,28 @@ Namen en nummers van gerelateerde objecten komen voor de hele pagina uit één e
 
 Eigen geometrie (`geo:asWKT`) wordt als punt of vlak getekend. Objecten zonder eigen geometrie maar met `geleendeGeometrie` krijgen het vlak van het object waarin ze liggen, met een stippellijn: terreinen dat van hun rijksmonument, vondstlocaties dat van hun onderzoeksgebied. Archeologische complexen, grondsporen en vondsten hebben geen locatie; de tekst onder de kaart zegt dat.
 
+### Oude kaarten (Allmaps)
+
+Bij elk resultaat met een locatie staat de knop **Oude kaarten**. Die zoomt naar het object (bij een los object tot zoom 16) en legt er een gegeorefereerde historische kaart uit [Allmaps](https://allmaps.org/) overheen. Rechtsboven in de kaart staat een paneel met een keuzelijst van alle kaarten op die plek (op jaar, oudste eerst), een schuif voor de dekking en een link naar de hele kaart in de Allmaps-viewer. Als er een Bonneblad is, wordt dat eerst getoond. Dezelfde aanpak als in [Dodenakkers](https://github.com/jolietjakeblues/dodenakkers) en [Joodse begraafplaatsen](https://github.com/jolietjakeblues/joodse-begraafplaatsen).
+
+| Onderdeel | Hoe |
+|---|---|
+| Welke kaarten | [`web/oude-kaarten.json`](../web/oude-kaarten.json), gemaakt met [`allmaps/maak-oude-kaarten.mjs`](../allmaps/maak-oude-kaarten.mjs) uit de open dump `https://files.allmaps.org/maps.geojsonl` (CC0) |
+| Selectie | omtrek (deels) in Nederland, kleiner dan 600 km², collectie van een bekende instelling, herkenbare titel, per scan alleen de nieuwste georeferentie |
+| Jaartal | Bonnebladen uit [`allmaps/bonnebladen_jaren.csv`](../allmaps/bonnebladen_jaren.csv) (overgenomen uit Joodse begraafplaatsen), anders een jaartal in de titel |
+| Welke kaarten op een plek | in de browser: punt-in-vlak op de omtrek, voor het (zwaarte)punt van het object ([`web/oude-kaarten.js`](../web/oude-kaarten.js)) |
+| Kaartbeeld | Leaflet-tegellaag `https://allmaps.xyz/maps/{id}/{z}/{x}/{y}.png` (Allmaps Tile Server), alleen binnen de omtrek, tot zoom 18 |
+
+Stand 21 oktober 2026: 5.302 van de 66.091 kaarten in de dump, vooral TU Delft Library (3.459, waaronder de Bonnebladen), UB Utrecht (408), 4TU.ResearchData (394) en UB Amsterdam (344). Het bestand is 1,1 MB (ca. 300 kB ingepakt) en wordt pas geladen bij de eerste klik.
+
+Verversen (de dump wordt twee keer per dag bijgewerkt; het script downloadt ca. 200 MB):
+
+```bash
+node allmaps/maak-oude-kaarten.mjs
+```
+
+Een lokale kopie van de dump kan ook: `node allmaps/maak-oude-kaarten.mjs pad/naar/maps.geojsonl`.
+
 ### Resultaatkaart
 
 - Kop: de naam of locatienaam; zonder naam het type of de functie met het adres.
@@ -116,25 +145,27 @@ Eigen geometrie (`geo:asWKT`) wordt als punt of vlak getekend. Objecten zonder e
 
 ### Overig
 
+- Oude kaarten uit Allmaps (zie hierboven) zitten niet in de SDO-demo's.
+- In de zoekhulp staat een tabel *Wat kan deze demo meer dan de SDO-demo's?* (`#help-anders`), ook te openen vanuit de intro.
 - De vooraf berekende telling per gezicht of werelderfgoed (`gebieden.json` in de SDO-demo) zit er niet in.
 - Gemarkeerde zoektermen behouden de spatie erna. In de SDO-demo viel die weg ("KERKGEBOUWuit").
 - De CSV heeft 19 kolommen: soort, nummer, naam, adres, plaats, gemeente, provincie, functie, type, materiaal, begin- en eindperiode, begin- en eindjaar, juridische status, vertrouwelijkheid, Linked Data, register en omschrijving.
 
 ## Beveiliging en publicatie
 
-Zoals in de SDO-demo ([`web/_headers`](../web/_headers)): Content-Security-Policy, `frame-ancestors 'none'`, `noindex`, en geen HTML uit de bron in de pagina. Links gaan alleen naar http(s) en bekende registers, CSV-cellen worden beschermd tegen formules, en een schuine streep in de zoekvraag wordt geen reguliere expressie. Nieuw in de CSP: `img-src https://images.memorix.nl` voor de thumbnails.
+Zoals in de SDO-demo ([`web/_headers`](../web/_headers)): Content-Security-Policy, `frame-ancestors 'none'`, `noindex`, en geen HTML uit de bron in de pagina. Links gaan alleen naar http(s) en bekende registers, CSV-cellen worden beschermd tegen formules, en een schuine streep in de zoekvraag wordt geen reguliere expressie. Nieuw in de CSP: `img-src https://images.memorix.nl` voor de thumbnails en `https://allmaps.xyz` voor de oude kaarten. De Allmaps-id's uit `oude-kaarten.json` moeten 16 hexadecimale tekens zijn; andere worden overgeslagen.
 
 ## Online zetten
 
 Net als de andere demo's: een Cloudflare Worker die alleen de bestanden uit `web/` serveert ([`wrangler.jsonc`](../wrangler.jsonc), naam `erfgoed-cho-zoekdemo`). Hij staat online sinds 21 oktober 2026, op <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/>. Een onbekende URL geeft `web/404.html`.
 
-**Automatisch via Workers Builds.** Koppel de repository in het Cloudflare-dashboard, net als bij de SDO-demo:
+**Automatisch via Workers Builds.** De repository is gekoppeld in het Cloudflare-dashboard, net als bij de SDO-demo:
 
 1. **Workers & Pages** → **erfgoed-cho-zoekdemo** → **Settings** → **Builds** → **Connect**.
 2. Kies de GitHub-repository van dit project, branch `main`.
 3. Laat *Build command* leeg. *Deploy command*: `npx wrangler deploy`. *Root directory*: `/`.
 
-Daarna wordt elke push naar `main` automatisch gepubliceerd, en krijgen andere branches een preview-URL. De eerste versie is op 21 oktober met de hand gepubliceerd; de koppeling moet nog worden gemaakt.
+Elke push naar `main` wordt automatisch gepubliceerd, en andere branches krijgen een preview-URL. De koppeling is gemaakt op 21 oktober 2026; de eerste twee versies zijn die dag met de hand gepubliceerd.
 
 Met de hand publiceren kan ook:
 

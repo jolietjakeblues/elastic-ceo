@@ -86,8 +86,14 @@ De Nederlandse analyse van `Erfgoed-sdo-nl3` is het uitgangspunt, maar is aangep
 
 De zoekresultaten voor monumentwoorden blijven gelijk. Details en vergelijking: [taalanalyse.md](taalanalyse.md).
 
+Op 21 oktober toegevoegd: `punt_tussen_letters`, zodat voorletters zonder spatie ("P.J.H.Cuypers") los van de achternaam worden gevonden, en de normalizer `zonder_functiecode`, zodat "Boerderij (M)", "Boerderij(M)" en "Boerderij(M1)" in de facet één waarde zijn. Dat laatste kan ook in de CONSTRUCT, maar dan moeten de 7 query-jobs opnieuw; in de index is alleen een nieuwe service nodig, en de bron blijft zichtbaar in `_source`.
+
 Op 21 oktober aangepast: de eerste versie gebruikte `condition`-filters met Painless-scripts, maar TriplyDB laat geen scripts toe in een analyzer ("cannot execute scripts using [analysis] context").
 
 ## 15. Zeven query-jobs, één per klasse
 
 De hele projectie als één query-job was te traag: 5% na ongeveer 4 uur. Opgesplitst in 7 queries, één per klasse (de vier kleine klassen samen), duurde het samen ongeveer 3 uur, op 21 oktober 2026. Het splitsen in kleinere delen op URI is voorbereid (de grenzen staan in `construct/maak-delen.mjs`), maar was niet nodig.
+
+## 16. Oude kaarten uit een vaste lijst, niet uit de Allmaps-API
+
+De Allmaps-API (`https://api.allmaps.org/maps?intersects=lon,lat`) geeft op een punt vooral grote overzichtskaarten en testkaarten; de filters zijn niet gedocumenteerd. Daarom dezelfde aanpak als in Dodenakkers en Joodse begraafplaatsen: de open dump offline filteren (detailkaarten, bekende collecties, herkenbare titel) tot `web/oude-kaarten.json`. Anders dan daar wordt niet per object vooraf gekoppeld (dat zijn 1,2 mln objecten): de browser zoekt zelf welke kaarten over het punt liggen. Het bestand is klein genoeg (ca. 300 kB ingepakt) en wordt pas bij de eerste klik geladen.

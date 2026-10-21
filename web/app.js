@@ -1,5 +1,6 @@
-import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, partsClause, withinClause, nearClause, inhoudClause, gebiedenListQuery, ligtInQuery, AFSTANDEN, IN_SOORTEN, ROND_SOORTEN, bucketsOf, search, facets, fields, sorts, soorten, soortVan, nummerVan, values, textValue, safeUrl, registerLink, afbeeldingUrl, toParams, fromParams, describe, toCsv, jaartal, searchFields, DEFAULT_FIELD, PAGE_SIZE, MAX_WINDOW, EXPORT_MAX } from './search.js';
+import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, partsClause, withinClause, nearClause, inhoudClause, gebiedenListQuery, ligtInQuery, AFSTANDEN, IN_SOORTEN, ROND_SOORTEN, bucketsOf, search, facets, fields, sorts, soorten, soortVan, nummerVan, values, textValue, safeUrl, registerLink, afbeeldingUrl, toParams, fromParams, describe, toCsv, zonderFunctiecode, MET_FUNCTIECODE, jaartal, jaarBereik, JAARMODI, searchFields, DEFAULT_FIELD, PAGE_SIZE, MAX_WINDOW, EXPORT_MAX } from './search.js';
 import { geometryFor, mapGeometryFor, WKT_FIELD } from './geo.js';
+import { OUDE_KAARTEN_URL, tegels, viewerUrl, kaartenOp, kaartLabel, eersteKeus } from './oude-kaarten.js';
 const $ = id => document.getElementById(id);
 const blank = () => ({ query: '', field: DEFAULT_FIELD, filters: {}, jaar: {}, page: 0, sort: 'relevantie', binnen: null, jokers: state?.jokers ?? false });
 let state; state = blank();
@@ -134,14 +135,14 @@ function renderResults(hits) {
     card.addEventListener('click', event => { if (!event.target.closest('a, button, summary, details')) select(hit._id, true); });
     const head = el('p', null, 'number'); head.append(el('span', soorten[soort] ?? 'Object', 'badge'), document.createTextNode(` ${nummer ?? 'zonder nummer'}`));
     // Zonder naam: type of functie en adres als kop.
-    const fallback = [values(source[fields.type])[0] ?? values(source[fields.hoofdfunctie])[0], values(source[fields.volledigAdres])[0] ?? values(source[fields.woonplaatsnaam])[0]].filter(Boolean).map(decode).join(', ');
+    const fallback = [zonderFunctiecode(source[fields.type])[0] ?? zonderFunctiecode(source[fields.hoofdfunctie])[0], values(source[fields.volledigAdres])[0] ?? values(source[fields.woonplaatsnaam])[0]].filter(Boolean).map(decode).join(', ');
     card.append(head, el('h3', naamVan(source) || fallback || `${soorten[soort] ?? 'Object'} zonder naam`));
     const image = afbeeldingUrl(values(source[fields.afbeelding])[0]);
     // Thumbnail uit de beeldbank; laadt die niet (of geeft de beeldbank geen afbeelding terug), dan valt hij weg.
     if (image) { const img = el('img', null, 'thumb'); img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.addEventListener('error', () => img.remove()); img.src = image; card.append(img); }
     const metadata = el('dl', null, 'metadata'), gezien = new Set();
     for (const [key, label] of METADATA) {
-      const text = key === 'periode' ? periodeVan(source) : show(source[fields[key]]);
+      const text = key === 'periode' ? periodeVan(source) : show(MET_FUNCTIECODE.includes(key) ? zonderFunctiecode(source[fields[key]]) : source[fields[key]]);
       if (!text || gezien.has(`${label}:${text}`)) continue;
       gezien.add(`${label}:${text}`);
       const row = el('div'); row.append(el('dt', `${label}:`), el('dd', text)); metadata.append(row);
@@ -167,7 +168,7 @@ function renderResults(hits) {
     const links = el('div', null, 'links');
     for (const raw of values(source['@id'])) { const url = safeUrl(raw); if (url) { links.append(link('Linked Data (CHO)', url)); const uri = el('p', null, 'uri'); uri.append(link(raw, url)); card.append(uri); } }
     for (const raw of values(source[fields.seeAlso])) { const register = registerLink(raw); if (register) links.append(link(register.label, register.url)); }
-    if (map && mapGeometryFor(source)) links.append(button('Toon op kaart', () => select(hit._id, true)));
+    if (map && mapGeometryFor(source)) links.append(button('Toon op kaart', () => select(hit._id, true)), button('Oude kaarten', () => toonOudeKaarten(hit._id, source)));
     if (geometryFor(source) && nummer && ROND_SOORTEN.includes(soort)) links.append(button('In de buurt', () => openBinnen(`rond:${soort}:${nummer}:500`)));
     card.append(links); $('results').append(card);
   }
@@ -260,6 +261,51 @@ function renderMap(hits) {
   $('map-info').textContent = hits.length ? delen.join(' ') : 'Geen resultaten om op de kaart te tonen.';
   return total;
 }
+// Oude kaarten uit Allmaps over een object: een laag op de kaart, met een keuzelijst en een schuif voor de dekking.
+// De index (oude-kaarten.json, ca. 300 kB ingepakt) wordt pas geladen bij de eerste keer.
+let oudeIndex = null, oudeLaag = null, oudePaneel = null, oudeDekking = 80, oudeBeurt = 0;
+const laadOudeKaarten = () => (oudeIndex ??= fetch(OUDE_KAARTEN_URL).then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); }).catch(error => { oudeIndex = null; throw error; }));
+const escapeHtml = text => el('span', text).innerHTML;
+function sluitOudeKaart() { oudeBeurt++; oudeLaag?.remove(); oudeLaag = null; oudePaneel?.remove(); oudePaneel = null; }
+function oudeKaartPaneel() {
+  if (oudePaneel) return oudePaneel.getContainer();
+  oudePaneel = new (L.Control.extend({ onAdd() { const box = el('div', null, 'oude-kaart'); L.DomEvent.disableClickPropagation(box); L.DomEvent.disableScrollPropagation(box); return box; } }))({ position: 'topright' }).addTo(map);
+  return oudePaneel.getContainer();
+}
+function toonOudeLaag(kaart, bron) {
+  oudeLaag?.remove();
+  const [x0, y0, x1, y1] = kaart.bbox;
+  // De tile server rekent elke tegel uit; boven zoom 18 vergroot Leaflet zelf. Buiten de omtrek worden geen tegels gevraagd.
+  oudeLaag = L.tileLayer(tegels(kaart.id), { maxNativeZoom: 18, maxZoom: 19, zIndex: 2, opacity: oudeDekking / 100, bounds: [[y0, x0], [y1, x1]], attribution: `Oude kaart: ${escapeHtml(kaart.collectie)} via <a href="https://allmaps.org/" target="_blank" rel="noopener">Allmaps</a>` }).addTo(map);
+  bron.replaceChildren(document.createTextNode(`${kaart.collectie}${kaart.jaar ? ` · ${kaart.jaar}` : ''} · `), link('hele kaart in Allmaps', viewerUrl(kaart.id)));
+}
+async function toonOudeKaarten(id, source) {
+  const geometry = mapGeometryFor(source);
+  if (!map || !geometry) return;
+  const soort = soortVan(source['@id']), beurt = ++oudeBeurt;
+  // Oude kaarten zijn meestal 1:25.000 of grover: bij een los object zoomen we niet verder in dan 16.
+  select(id, true); if (!isArea(soort)) map.flyTo([geometry.point.lat, geometry.point.lon], 16, { duration: 0.8 });
+  const naam = naamVan(source) || `${soortLabel(soort)} ${nummerVan(source) ?? ''}`.trim();
+  const box = oudeKaartPaneel(), sluit = button('×', sluitOudeKaart, 'oude-kaart-sluit'); sluit.setAttribute('aria-label', 'Oude kaart sluiten');
+  const kop = el('p', null, 'oude-kaart-kop'); kop.append(el('strong', 'Oude kaarten'), document.createTextNode(` bij ${naam}`), sluit);
+  box.replaceChildren(kop, el('p', 'Laden…', 'hint'));
+  let lijst;
+  try { lijst = kaartenOp(await laadOudeKaarten(), geometry.point.lat, geometry.point.lon); }
+  catch (error) { console.error(error); box.replaceChildren(kop, el('p', 'De lijst met oude kaarten kon niet worden geladen.', 'hint')); return; }
+  if (beurt !== oudeBeurt || !oudePaneel) return;
+  if (!lijst.length) { oudeLaag?.remove(); oudeLaag = null; box.replaceChildren(kop, el('p', 'Geen oude kaarten van bekende collecties op deze plek.', 'hint')); return; }
+  const keuze = el('select'); keuze.setAttribute('aria-label', 'Kies een oude kaart');
+  // Meerdere scans met dezelfde titel krijgen een volgnummer.
+  const gezien = new Map();
+  for (const kaart of lijst) { const tekst = kaartLabel(kaart), n = (gezien.get(tekst) ?? 0) + 1; gezien.set(tekst, n); const optie = el('option', n > 1 ? `${tekst} (${n})` : tekst); optie.value = kaart.id; keuze.append(optie); }
+  const dekking = el('input'); Object.assign(dekking, { type: 'range', min: 0, max: 100, step: 5, value: oudeDekking });
+  const dekkingLabel = el('label', 'Dekking '); dekkingLabel.append(dekking);
+  const bron = el('p', null, 'hint');
+  keuze.addEventListener('change', () => toonOudeLaag(lijst.find(kaart => kaart.id === keuze.value), bron));
+  dekking.addEventListener('input', () => { oudeDekking = Number(dekking.value); oudeLaag?.setOpacity(oudeDekking / 100); });
+  box.replaceChildren(kop, el('p', `${plural(lijst.length, 'kaart', 'kaarten')} op deze plek, oudste eerst.`, 'hint'), keuze, dekkingLabel, bron);
+  keuze.value = eersteKeus(lijst).id; toonOudeLaag(eersteKeus(lijst), bron);
+}
 // Een verborgen kaart heeft geen afmetingen; pas passend inzoomen zodra de kaart zichtbaar is.
 function fitMarkers() {
   if (!needsFit || !$('map').offsetWidth) return;
@@ -305,7 +351,7 @@ function renderFilters(aggregations, context) {
     chip.setAttribute('aria-label', `Verwijder ${context?.label ?? state.binnen}`); $('active-filters').append(chip);
   }
   if (state.jaar.van != null || state.jaar.tot != null) {
-    const tekst = `Datering: ${state.jaar.van != null ? jaartal(state.jaar.van) : '…'} – ${state.jaar.tot != null ? jaartal(state.jaar.tot) : '…'} ×`;
+    const tekst = `Datering: ${JAARMODI[state.jaar.modus ?? 'overlapt']} in ${jaarBereik(state.jaar).replace(/^de periode /, '')} ×`;
     const chip = button(tekst, () => { state.jaar = {}; state.page = 0; syncForm(); run(); });
     chip.setAttribute('aria-label', 'Verwijder het filter op datering'); $('active-filters').append(chip);
   }
@@ -343,7 +389,7 @@ function renderFilters(aggregations, context) {
 // Zoekformulier, URL en uitleg volgen de state.
 function syncForm() {
   $('query').value = state.query; $('field').value = state.field; $('sort').value = state.sort; checkQuery();
-  $('jaar-van').value = state.jaar.van ?? ''; $('jaar-tot').value = state.jaar.tot ?? '';
+  $('jaar-van').value = state.jaar.van ?? ''; $('jaar-tot').value = state.jaar.tot ?? ''; $('jaarmodus').value = state.jaar.modus ?? 'overlapt';
   const g = state.binnen && gebieden.byKey.get(state.binnen);
   $('binnen').value = g ? gebiedLabel(g) : '';
 }
@@ -443,8 +489,11 @@ function leesJaar(id) {
 $('reset').addEventListener('click', reset);
 $('search-form').addEventListener('submit', event => {
   event.preventDefault();
-  try { state.jaar = { ...(leesJaar('jaar-van') != null ? { van: leesJaar('jaar-van') } : {}), ...(leesJaar('jaar-tot') != null ? { tot: leesJaar('jaar-tot') } : {}) }; }
-  catch (error) { $('error').textContent = error.message; $('error').hidden = false; return; }
+  try {
+    const van = leesJaar('jaar-van'), tot = leesJaar('jaar-tot');
+    if (van != null && tot != null && van > tot) throw new Error('Het jaartal bij Van moet vóór het jaartal bij tot liggen.');
+    state.jaar = { ...(van != null ? { van } : {}), ...(tot != null ? { tot } : {}), ...(van != null || tot != null ? { modus: $('jaarmodus').value === 'binnen' ? 'binnen' : 'overlapt' } : {}) };
+  } catch (error) { $('error').textContent = error.message; $('error').hidden = false; $('jaar-van').focus(); return; }
   state.query = $('query').value; state.field = $('field').value; state.page = 0;
   const typed = $('binnen').value.trim();
   if (!typed) { if (state.binnen && gebieden.byKey.has(state.binnen)) state.binnen = null; }
@@ -463,13 +512,13 @@ $('binnen').addEventListener('search', () => { if (!$('binnen').value && state.b
 $('sort').addEventListener('change', () => { state.sort = $('sort').value; state.page = 0; if ($('query-json').textContent.startsWith('{')) run(); });
 document.querySelectorAll('[data-example]').forEach(node => node.addEventListener('click', () => {
   $('help').close();
-  const jaar = { ...(node.dataset.van ? { van: Number(node.dataset.van) } : {}), ...(node.dataset.tot ? { tot: Number(node.dataset.tot) } : {}) };
+  const jaar = { ...(node.dataset.van ? { van: Number(node.dataset.van) } : {}), ...(node.dataset.tot ? { tot: Number(node.dataset.tot) } : {}), ...(node.dataset.van || node.dataset.tot ? { modus: node.dataset.jaarmodus === 'binnen' ? 'binnen' : 'overlapt' } : {}) };
   Object.assign(state, { query: node.dataset.example, field: node.dataset.veld ?? DEFAULT_FIELD, page: 0, binnen: node.dataset.binnen ?? null, filters: node.dataset.soort ? { soort: node.dataset.soort.split(',') } : {}, jaar, sort: node.dataset.sorteer ?? 'relevantie' });
   syncForm(); run();
 }));
 $('help-open').addEventListener('click', () => $('help').showModal());
 // "Hoe werkt de volgorde?" opent de zoekhulp bij dat onderwerp.
-document.querySelectorAll('[data-help]').forEach(node => node.addEventListener('click', () => { $('help').showModal(); $(`help-${node.dataset.help}`)?.scrollIntoView({ block: 'start' }); }));
+document.querySelectorAll('[data-help]').forEach(node => node.addEventListener('click', () => { if (!$('help').open) $('help').showModal(); $(`help-${node.dataset.help}`)?.scrollIntoView({ block: 'start' }); }));
 $('help-close').addEventListener('click', () => $('help').close());
 $('help').addEventListener('click', event => { if (event.target === $('help')) $('help').close(); });
 // Tip bij operatoren in kleine letters of Nederlandse varianten: die worden als gewone zoekwoorden gezien.

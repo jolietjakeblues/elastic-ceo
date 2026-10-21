@@ -31,5 +31,17 @@ const terp = await search(buildQuery({ query: 'terp', field: 'Exact' }));
 const waterput = await search(buildQuery({ query: 'terp' }));
 ok(waterput.hits.hits.every(h => !JSON.stringify(h.highlight ?? {}).toLowerCase().includes('<mark>waterput')), `terp vindt geen waterput (${waterput.hits.total.value} treffers, exact ${terp.hits.total.value})`);
 
+// Voorletters zonder spatie: "door P.J.H.Cuypers gebouwd" (tekenfilter punt_tussen_letters, vanaf de nieuwe service).
+const station = await search(buildQuery({ query: '(cuijpers OR cuypers) AND station', filters: { soort: ['rijksmonument'] } }));
+ok(station.hits.hits.some(h => h._id.endsWith('/rijksmonument/32455')), `cuypers AND station vindt Centraal Station Amsterdam (RM 32455): ${station.hits.total.value} treffers`);
+
+// Functie zonder code van de oude functie-indeling: "Boerderij (M)" en "Boerderij(M)" worden één facetwaarde (vanaf de nieuwe service).
+const functies = bucketsOf((await search(buildQuery({}))).aggregations.functie).buckets.map(b => b.key);
+const metCode = functies.filter(k => /\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\)\s*$/.test(k));
+ok(metCode.length === 0, `facet functie zonder code: ${metCode.length ? metCode.slice(0, 5).join(', ') : 'geen codes'}`);
+
+const helemaal = await search(buildQuery({ query: 'aardewerk', filters: { soort: ['vondsten'] }, jaar: { van: -12, tot: 450, modus: 'binnen' } }));
+ok(helemaal.hits.total.value < romeins.hits.total.value && helemaal.hits.hits.every(h => values(h._source[fields.beginjaar]).every(j => Number(j) >= -12) && values(h._source[fields.eindjaar]).every(j => Number(j) <= 450)), `datering helemaal in -12 tot 450: ${helemaal.hits.total.value} vondsten, minder dan (deels)`);
+
 console.log(fouten ? `\n${fouten} controle(s) mislukt` : '\nalle controles gelukt');
 process.exit(fouten ? 1 : 0);

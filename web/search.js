@@ -81,12 +81,18 @@ export const sorts = {
   jongste: { label: 'Jongste eerst (eindjaar)', sort: [{ [fields.eindjaar]: { order: 'desc', missing: '_last' } }] },
 };
 
-// Periode: objecten waarvan de datering overlapt met [van, tot]. Jaren voor Christus zijn negatief.
+// Periode [van, tot]; jaren voor Christus zijn negatief. Twee manieren (modus), zoals in de archeologiedemo:
+//   overlapt: de datering valt er (deels) in: een eindjaar >= van en een beginjaar <= tot;
+//   binnen:   de datering valt er helemaal in: geen beginjaar < van en geen eindjaar > tot (en wel gedateerd).
+// Een monument kan meerdere begin- en eindjaren hebben (bouw, verbouwing, restauratie). Bij "helemaal" moeten ze
+// er dus allemaal in vallen; bij "deels" is één genoeg.
 const JAAR = /^-?\d{1,6}$/;
-export const jaarClauses = ({ van = null, tot = null } = {}) => [
-  ...(van != null ? [{ range: { [fields.eindjaar]: { gte: van } } }] : []),
-  ...(tot != null ? [{ range: { [fields.beginjaar]: { lte: tot } } }] : []),
-];
+export const JAARMODI = { overlapt: '(deels)', binnen: 'helemaal' };
+export function jaarClauses({ van = null, tot = null, modus = 'overlapt' } = {}) {
+  if (van == null && tot == null) return [];
+  if (modus === 'binnen') return [{ bool: { filter: [{ exists: { field: fields.beginjaar } }], must_not: [...(van != null ? [{ range: { [fields.beginjaar]: { lt: van } } }] : []), ...(tot != null ? [{ range: { [fields.eindjaar]: { gt: tot } } }] : [])] } }];
+  return [...(van != null ? [{ range: { [fields.eindjaar]: { gte: van } } }] : []), ...(tot != null ? [{ range: { [fields.beginjaar]: { lte: tot } } }] : [])];
+}
 
 // "Binnen": een context voor de zoekactie.
 //   gezicht:1325, werelderfgoed:818, bufferzone:818   ruimtelijk: wat binnen het vlak valt (geo_shape within)
@@ -148,6 +154,8 @@ function validate({ query = '', field = DEFAULT_FIELD, filters = {}, jaar = {}, 
   if (typeof query !== 'string' || query.length > 500) throw new Error('Gebruik maximaal 500 tekens in je zoekvraag.');
   if (binnen != null && (!BINNEN.test(binnen) || !context?.clause)) throw new Error('Onbekend gebied of object.');
   for (const key of ['van', 'tot']) if (jaar?.[key] != null && !(Number.isInteger(jaar[key]) && JAAR.test(String(jaar[key])))) throw new Error('Gebruik hele jaartallen; jaren voor Christus met een min (bijv. -500).');
+  if (jaar?.modus != null && !Object.hasOwn(JAARMODI, jaar.modus)) throw new Error('Onbekende manier van dateren.');
+  if (jaar?.van != null && jaar?.tot != null && jaar.van > jaar.tot) throw new Error('Het jaartal bij Van moet vóór het jaartal bij tot liggen.');
   const clean = {};
   for (const [key, value] of Object.entries(filters)) {
     const list = Array.isArray(value) ? value : [value];
@@ -157,7 +165,7 @@ function validate({ query = '', field = DEFAULT_FIELD, filters = {}, jaar = {}, 
   }
   const text = query.trim() ? { query_string: { query: veiligeZoekvraag(query.trim()), fields: queryFields(field), allow_leading_wildcard: jokers === true } } : { match_all: {} };
   const search = binnen ? { bool: { must: [text], filter: [context.clause] } } : text;
-  return { search, filters: clean, jaar: { van: jaar?.van ?? null, tot: jaar?.tot ?? null }, field, page, sort };
+  return { search, filters: clean, jaar: { van: jaar?.van ?? null, tot: jaar?.tot ?? null, modus: jaar?.modus ?? 'overlapt' }, field, page, sort };
 }
 const facetAggs = (filters, jaar) => Object.fromEntries(Object.keys(facets).map(key => [key, {
   filter: { bool: { filter: filterClauses(filters, jaar, key) } },
@@ -193,6 +201,12 @@ export function buildExportQuery(state = {}, context) {
 }
 export const values = value => (Array.isArray(value) ? value : value == null ? [] : [value]).filter(item => typeof item === 'string' || typeof item === 'number').map(String);
 export const textValue = value => values(value).join(', ');
+// Code van de oude functie-indeling achter functie en type ("Woonhuis(K)", "Boerderij (M1)", "Kazemat (B10)").
+// Dezelfde regel als de normalizer zonder_functiecode in de index (triply/nl-analyse.json); "Lunet(te)" en
+// "aardewerk:onbepaald (ROM)" blijven staan.
+export const FUNCTIECODE = /\s*\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\)\s*$/;
+export const MET_FUNCTIECODE = ['functie', 'hoofdfunctie', 'oorspronkelijkeFunctie', 'huidigeFunctie', 'type', 'typegroep'];
+export const zonderFunctiecode = value => [...new Set(values(value).map(text => String(text).replace(FUNCTIECODE, '')))];
 export function safeUrl(value) {
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; } catch { return null; }
 }
@@ -204,7 +218,7 @@ export function registerLink(value) {
 }
 export const afbeeldingUrl = value => { const url = safeUrl(value); return url && new URL(url).hostname === 'images.memorix.nl' ? url : null; };
 
-// Deelbare URL: ?q=…&veld=…&soort=…&provincie=…&van=…&tot=…&binnen=…&sorteer=…&pagina=…
+// Deelbare URL: ?q=…&veld=…&soort=…&provincie=…&van=…&tot=…&jaarmodus=binnen&binnen=…&sorteer=…&pagina=…
 const params = { soort: 'soort', provincie: 'provincie', gemeente: 'gemeente', juridischeStatus: 'status', functie: 'functie', type: 'type', materiaal: 'materiaal', beginperiode: 'periode', vertrouwelijk: 'vertrouwelijk' };
 export function toParams({ query = '', field = DEFAULT_FIELD, filters = {}, jaar = {}, page = 0, sort = 'relevantie', jokers = false, binnen = null }) {
   const result = new URLSearchParams();
@@ -214,6 +228,7 @@ export function toParams({ query = '', field = DEFAULT_FIELD, filters = {}, jaar
   for (const [key, list] of Object.entries(filters)) for (const value of list) result.append(params[key], value);
   if (jaar?.van != null) result.set('van', String(jaar.van));
   if (jaar?.tot != null) result.set('tot', String(jaar.tot));
+  if ((jaar?.van != null || jaar?.tot != null) && jaar.modus === 'binnen') result.set('jaarmodus', 'binnen');
   if (sort !== 'relevantie') result.set('sorteer', sort);
   if (page > 0) result.set('pagina', String(page + 1));
   if (jokers) result.set('jokers', '1');
@@ -228,6 +243,8 @@ export function fromParams(search) {
   }
   const jaar = {};
   for (const key of ['van', 'tot']) { const raw = input.get(key); if (raw && JAAR.test(raw)) jaar[key] = Number(raw); }
+  if (jaar.van != null && jaar.tot != null && jaar.van > jaar.tot) { delete jaar.van; delete jaar.tot; }
+  if ((jaar.van != null || jaar.tot != null) && input.get('jaarmodus') === 'binnen') jaar.modus = 'binnen';
   const page = Number.parseInt(input.get('pagina') ?? '1', 10);
   const binnen = input.get('binnen');
   const state = {
@@ -246,6 +263,7 @@ export function fromParams(search) {
 const fieldText = { Alles: 'in alle tekstvelden', Omschrijving: 'in de omschrijving', Naam: 'in de naam', Adres: 'in het adres', Plaats: 'in plaats, gemeente en provincie', 'Type en functie': 'in type en functie', Materiaal: 'in het materiaal', 'Periode en stijl': 'in periode en stijl', Maker: 'in maker en rol', Nummer: 'in de nummers', Exact: 'exact (zonder meervoud, samenstellingen en synoniemen)' };
 const filterValue = (key, value) => `“${key === 'soort' ? soorten[value] ?? value : value}”`;
 export const jaartal = jaar => (jaar < 0 ? `${-jaar} v.Chr.` : String(jaar));
+export const jaarBereik = ({ van = null, tot = null } = {}) => (van != null && tot != null ? `${jaartal(van)} – ${jaartal(tot)}` : van != null ? `de periode vanaf ${jaartal(van)}` : `de periode tot ${jaartal(tot)}`);
 export function describe({ query = '', field = DEFAULT_FIELD, filters = {}, jaar = {}, page = 0, sort = 'relevantie', jokers = false, binnen = null }, binnenLabel) {
   const lines = [];
   const trimmed = query.trim();
@@ -262,7 +280,7 @@ export function describe({ query = '', field = DEFAULT_FIELD, filters = {}, jaar
   }
   const active = Object.entries(filters).filter(([, list]) => list.length);
   if (active.length) lines.push(`Alleen objecten met ${active.map(([key, list]) => `${facets[key].toLowerCase()} ${list.map(value => filterValue(key, value)).join(' of ')}`).join(', en ')}.`);
-  if (jaar?.van != null || jaar?.tot != null) lines.push(`Alleen objecten met een datering ${jaar.van != null && jaar.tot != null ? `tussen ${jaartal(jaar.van)} en ${jaartal(jaar.tot)}` : jaar.van != null ? `vanaf ${jaartal(jaar.van)}` : `tot ${jaartal(jaar.tot)}`} (overlap telt).`);
+  if (jaar?.van != null || jaar?.tot != null) lines.push(`Alleen objecten waarvan de datering ${JAARMODI[jaar.modus ?? 'overlapt']} valt in ${jaarBereik(jaar)}.`);
   if (jokers) lines.push('Testmodus: een jokerteken aan het begin (bijv. *molen) is toegestaan.');
   if (trimmed && sort === 'relevantie' && (field === 'Alles' || field === 'Exact')) lines.push(`Volgorde: een treffer in naam, type of functie telt ${WEIGHT}× zo zwaar als een treffer in de omschrijving of het adres. Dat verandert alleen de volgorde, niet het aantal.`);
   lines.push(`Gesorteerd op ${sort === 'relevantie' ? 'relevantie (best passend eerst)' : sorts[sort].label.charAt(0).toLowerCase() + sorts[sort].label.slice(1)}; resultaten ${page * PAGE_SIZE + 1} tot ${(page + 1) * PAGE_SIZE}.`);
@@ -277,6 +295,7 @@ export function toCsv(hits, decode = text => text) {
   const get = (source, key) => {
     if (key === 'soort') return [soorten[soortVan(source['@id'])] ?? ''];
     if (key === 'nummer') return [nummerVan(source) ?? ''];
+    if (MET_FUNCTIECODE.includes(key)) return zonderFunctiecode(source[fields[key]]);
     return values(source[key === '@id' ? '@id' : fields[key]]);
   };
   const rows = hits.map(hit => CSV_KOLOMMEN.map(([, key]) => cell(decode(get(hit._source ?? {}, key).join(' | ')))).join(';'));

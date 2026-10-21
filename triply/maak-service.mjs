@@ -63,6 +63,10 @@ const tekst = {
   type: 'text', analyzer: 'nl_index', search_analyzer: 'nl_zoeken',
   fields: { keyword, exact: { type: 'text', analyzer: 'nl_exact' } },
 };
+// Functie en type: .keyword zonder de code van de oude functie-indeling ("Woonhuis(K)", "Boerderij (M1)" → "Woonhuis",
+// "Boerderij"), zodat de facet die varianten samenvoegt. De tekst zelf blijft zoals in de bron.
+const MET_FUNCTIECODE = ['functie', 'hoofdfunctie', 'oorspronkelijkeFunctie', 'huidigeFunctie', 'type', 'typegroep'];
+const tekstZonderCode = { ...tekst, fields: { ...tekst.fields, keyword: { ...keyword, normalizer: 'zonder_functiecode' } } };
 const kort = { type: 'text', analyzer: 'nl_exact', fields: { keyword } };
 const nummer = { type: 'text', analyzer: 'nl_exact', fields: { keyword, getal: { type: 'long', ignore_malformed: true } } };
 const uri = { type: 'keyword', ignore_above: 1024 };
@@ -89,6 +93,7 @@ const config = {
             properties: {
               '@id': { type: 'text', fields: { keyword, soort: { type: 'keyword', normalizer: 'soort' } } },
               ...velden(TEKST, tekst),
+              ...velden(MET_FUNCTIECODE, tekstZonderCode),
               ...velden(KORT, kort),
               ...velden(NUMMER, nummer),
             },
