@@ -21,7 +21,7 @@ Kort:
 | Dataset | `rce/erfgoed` (*public*): 23.847.404 statements in 7 graphs. De naam (bijvoorbeeld `erfgoed-ceo`) en de toegang zijn nog niet definitief. |
 | Index template | [triply/elastic-service.json](triply/elastic-service.json): alle velden van de query, zonder scripts, lokaal getest tegen Elasticsearch 8.17.0 |
 | Elastic-service | `Erfgoed-ceo` op `rce/erfgoed`, aangemaakt op 21 oktober, bezig met indexeren |
-| Voorkant | volgende stap: een zoekwebsite zoals de sdo-demo, in `web/` |
+| Zoekwebsite | online: <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/> ([web/](web/), zie [docs/website.md](docs/website.md)) |
 
 Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 
@@ -29,6 +29,8 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 
 | Pad | Inhoud |
 |---|---|
+| [`web/`](web/) | De zoekwebsite (HTML, CSS, JavaScript), zie [docs/website.md](docs/website.md) |
+| [`server.mjs`](server.mjs), [`package.json`](package.json), [`wrangler.jsonc`](wrangler.jsonc) | Lokale server (`npm start`), testscripts en Cloudflare-instellingen voor de website |
 | [`construct/alles.rq`](construct/alles.rq) | De CONSTRUCT voor de hele projectie; hier pas je de query aan |
 | [`construct/delen/`](construct/delen/) | Dezelfde query in 7 delen, één per klasse, elk als losse query-job in TriplyDB (gemaakt uit `alles.rq`) |
 | [`construct/maak-delen.mjs`](construct/maak-delen.mjs) | Maakt de 7 delen uit `alles.rq`; kan grote klassen ook kleiner splitsen |
@@ -37,6 +39,7 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`triply/nl-analyse.json`](triply/nl-analyse.json) | Analyzers, filters en normalizer: die van `Erfgoed-sdo-nl3`, aangepast voor archeologie |
 | [`triply/nl-analyse-nl3.json`](triply/nl-analyse-nl3.json) | Ongewijzigde kopie van de analyse in `Erfgoed-sdo-nl3`, alleen voor de vergelijking |
 | [`triply/dataset-beschrijving.md`](triply/dataset-beschrijving.md) | Beschrijving van de dataset, om in TriplyDB te plakken |
+| [`docs/website.md`](docs/website.md) | De zoekwebsite: wat hij kan, hoe je hem start en test, wat anders is dan de SDO-demo |
 | [`docs/achtergrond.md`](docs/achtergrond.md) | Waarom een projectie, en niet Elastic rechtstreeks op `rce/cho`, schema.org of een eigen Elastic |
 | [`docs/besluiten.md`](docs/besluiten.md) | Gemaakte keuzes, met de reden |
 | [`docs/schema.md`](docs/schema.md) | Alle velden: bron in CEO, soorten, type in Elastic, hoe de query draait |
@@ -46,6 +49,8 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`docs/triply-jobs.md`](docs/triply-jobs.md) | Wat TriplyDB documenteert over query-jobs, flows en Elasticsearch-services, en wat dat betekent voor de projectie |
 | [`docs/cho-data.md`](docs/cho-data.md) | Metingen aan `rce/cho` en valkuilen bij het queryen |
 | [`docs/open-punten.md`](docs/open-punten.md) | Wat nog moet of nog besloten moet worden |
+| [`tests/web.test.mjs`](tests/web.test.mjs) | Unit-tests voor de website (`npm test`) |
+| [`tests/live.mjs`](tests/live.mjs) | Controle van de website-queries tegen de live service (`npm run test:live`) |
 | [`tests/objecten.mjs`](tests/objecten.mjs) | Draait de query voor losse objecten en toont de velden per object |
 | [`tests/elastic-document.mjs`](tests/elastic-document.mjs) | Draait de query voor losse objecten en toont het document zoals Triply het in Elastic zet |
 | [`tests/lokaal-elastic.mjs`](tests/lokaal-elastic.mjs) | Laadt de template en 13 voorbeeldobjecten in een lokale Elasticsearch (Docker) en controleert types en zoekvragen |
@@ -53,6 +58,18 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`tests/corpus.mjs`](tests/corpus.mjs) | Bouwt een testcorpus van 23.490 objecten (NDJSON) voor de taalanalyse |
 | [`tests/vergelijk-analyse.mjs`](tests/vergelijk-analyse.mjs) | Vergelijkt de nl3-analyse en de nieuwe op het corpus, in een lokale Elasticsearch |
 | [`tests/schaal.mjs`](tests/schaal.mjs) | Draait de query voor alle objecten van één klasse: tijd, triples, velden |
+
+## Zoekwebsite
+
+**Online:** <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/>
+
+Lokaal:
+
+```bash
+npm start
+```
+
+Open daarna `http://127.0.0.1:4175`. Meer, ook over testen en online zetten: [docs/website.md](docs/website.md).
 
 ## Service aanmaken en controleren
 
@@ -94,7 +111,7 @@ Hernoem je de dataset, vervang dan `rce/erfgoed` in de URL's. Gaat de service op
 
 ## Testen
 
-Vereist Node.js 18 of nieuwer, zonder npm-dependencies. Draai de commando's vanuit deze map. De scripts gebruiken het SPARQL-endpoint `https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/cho/sparql`.
+Vereist Node.js 18 of nieuwer, zonder npm-dependencies. Draai de commando's vanuit deze map. De scripts hieronder gebruiken het SPARQL-endpoint `https://api.linkeddata.cultureelerfgoed.nl/datasets/rce/cho/sparql`.
 
 Losse objecten:
 

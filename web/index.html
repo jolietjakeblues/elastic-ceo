@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Erfgoed CHO-zoekdemo</title>
+  <meta name="description" content="Zoek in rijksmonumenten, complexen, gezichten, werelderfgoed en archeologie (terreinen, onderzoeksgebieden, vondstlocaties, complexen, grondsporen en vondsten) uit de CHO-dataset van de RCE.">
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="favicon-180.png">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="nl_NL">
+  <meta property="og:site_name" content="Erfgoed CHO-zoekdemo">
+  <meta property="og:title" content="Erfgoed CHO-zoekdemo">
+  <meta property="og:description" content="Zoek in monumenten en archeologie uit de CHO-dataset van de RCE, in één index.">
+  <meta property="og:url" content="https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/">
+  <meta property="og:image" content="https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/favicon-512.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#query">Direct naar zoeken</a>
+  <header class="site-header">
+    <div class="brand"><p><strong>Erfgoed CHO-zoekdemo</strong><br>Technische demonstrator op open data van de RCE</p></div>
+    <nav class="bar" aria-label="Kruimelpad"><div class="wrap"><ol class="crumbs"><li>Demo</li><li aria-current="page">Erfgoed en archeologie zoeken</li></ol></div></nav>
+  </header>
+  <main>
+  <div class="search-band"><div class="wrap">
+    <h1>Zoeken in monumenten en archeologie</h1>
+    <p class="intro">Ruim 1,2 miljoen objecten uit de CHO-dataset van de RCE in één index: rijksmonumenten, complexen, gezichten, werelderfgoed, archeologische terreinen, onderzoeksgebieden, vondstlocaties, archeologische complexen, grondsporen en vondsten. Zoek, filter op soort, plaats, type, materiaal en periode, en bekijk wat ergens in ligt.</p>
+    <form id="search-form" class="search-panel">
+      <div class="query-input"><label for="query">Jouw zoekvraag</label><input id="query" name="query" type="search" maxlength="500" placeholder="Bijvoorbeeld: molen, terp of kasteel AND gracht" aria-describedby="syntax"></div>
+      <div><label for="field">Zoek in</label><select id="field" name="field"></select></div>
+      <div class="actions"><button type="submit" class="primary">Zoek</button><button type="button" id="reset" title="Wis zoekvraag, filters en resultaten">Opnieuw beginnen</button></div>
+      <div class="binnen-input"><label for="binnen">Binnen gezicht of werelderfgoed <span class="optional">(optioneel)</span></label>
+        <div class="binnen-row"><input id="binnen" type="search" list="gebieden-lijst" autocomplete="off" placeholder="Typ een naam, bijvoorbeeld Orvelte of Kinderdijk" aria-describedby="binnen-hint"><datalist id="gebieden-lijst"></datalist></div>
+        <p id="binnen-hint" class="hint">Kies een gezicht of werelderfgoed (kern- of bufferzone); Elasticsearch zoekt dan ruimtelijk binnen het vlak. Bij een resultaat staan ook de knoppen <strong>Toon wat erin ligt</strong>, <strong>Toon onderdelen</strong> en <strong>In de buurt</strong>.</p></div>
+      <div class="jaar-input"><span class="label" id="jaar-label">Datering <span class="optional">(optioneel)</span></span>
+        <div class="jaar-row" role="group" aria-labelledby="jaar-label"><label for="jaar-van" class="sr-only">Vanaf jaar</label><input id="jaar-van" inputmode="numeric" placeholder="vanaf, bijv. -12" aria-describedby="jaar-hint"><span aria-hidden="true">tot</span><label for="jaar-tot" class="sr-only">Tot jaar</label><input id="jaar-tot" inputmode="numeric" placeholder="tot, bijv. 450" aria-describedby="jaar-hint"></div>
+        <p id="jaar-hint" class="hint">Objecten waarvan de datering (begin- tot eindjaar) overlapt met deze jaren. Jaren voor Christus met een min: -500, of 500 v.Chr.</p></div>
+      <p id="syntax" class="hint">Combineer met AND, OR, NOT (in hoofdletters) en haakjes. Gebruik quotes voor een exacte woordcombinatie. <button type="button" id="help-open" class="link-button">Zoekhulp en meer voorbeelden</button></p>
+      <p id="query-tip" class="tip" hidden></p>
+      <div class="examples"><span>Probeer:</span>
+        <button type="button" data-example="" data-binnen="gezicht:1325">Alles in Orvelte</button>
+        <button type="button" data-example="terp">terp</button>
+        <button type="button" data-example="hunebed">hunebed</button>
+        <button type="button" data-example="aardewerk" data-van="-12" data-tot="450" data-soort="vondsten">Romeins aardewerk</button>
+        <button type="button" data-example="" data-binnen="in:archeologischonderzoeksgebied:2038045">Alles in een onderzoeksgebied</button>
+        <button type="button" data-example="Cuypers" data-veld="Maker" data-sorteer="oudste">Gebouwd door Cuypers</button>
+        <button type="button" data-example="kasteel AND gracht">kasteel AND gracht</button>
+        <button type="button" data-example="" data-binnen="rond:rijksmonument:36075:500">Alles binnen 500 m van het Domplein</button>
+      </div>
+    </form>
+  </div></div>
+  <div class="wrap">
+    <div id="status" role="status" aria-live="polite">Vul een zoekvraag in, kies een gebied of een voorbeeld.</div>
+    <p id="explain" class="explain" hidden></p>
+    <div id="context" class="context" hidden></div>
+    <div id="error" role="alert" hidden></div>
+    <div class="view-toggle" role="group" aria-label="Weergave"><button type="button" data-view="list" aria-pressed="true">Lijst</button><button type="button" data-view="map" aria-pressed="false">Kaart</button></div>
+    <div class="workspace" id="workspace" data-view="list">
+      <aside aria-label="Filters"><h2>Filters en facetten</h2><p class="hint">Vink meerdere waarden aan: binnen een filter geldt <em>of</em>, tussen filters <em>en</em>.</p>
+        <div id="facets"><p class="muted">Na het zoeken verschijnen hier de beschikbare filters.</p></div>
+      </aside>
+      <section id="results-panel" aria-labelledby="results-heading"><div class="results-title"><h2 id="results-heading">Resultaten</h2><span id="page-info"></span></div>
+        <div class="toolbar"><label for="sort">Sorteer op</label><select id="sort" aria-describedby="sort-hint"></select><button type="button" id="share">Kopieer link</button><button type="button" id="export" disabled>Download CSV</button></div>
+        <p id="sort-hint" class="hint">Bij <strong>Relevantie</strong> staat het best passende resultaat bovenaan. Een treffer in naam, type of functie telt 3× zo zwaar als een treffer in de omschrijving. <button type="button" class="link-button" data-help="volgorde">Hoe werkt de volgorde?</button></p>
+        <p id="export-info" class="hint" aria-live="polite"></p>
+        <div id="active-filters"></div><div id="results"><p class="empty">Zoek op woorden, een naam, een adres of een nummer, of kies een gebied.</p></div><nav id="pagination" aria-label="Resultaatpagina’s" hidden><button id="previous" type="button">Vorige</button><span id="page-number"></span><button id="next" type="button">Volgende</button></nav></section>
+      <section id="map-panel" aria-labelledby="map-heading"><div class="results-title"><h2 id="map-heading">Kaart</h2></div><div id="map" role="region" aria-label="Kaart met zoekresultaten"></div>
+        <ul class="legend" aria-label="Legenda"><li data-soort="rijksmonument">Rijksmonument</li><li data-soort="complex">Complex</li><li data-soort="gezicht">Gezicht</li><li data-soort="werelderfgoed">Werelderfgoed</li><li data-soort="archeologischterrein">Archeologisch terrein</li><li data-soort="archeologischonderzoeksgebied">Onderzoeksgebied</li><li data-soort="vondstlocatie">Vondstlocatie</li><li data-soort="binnen">Gekozen gebied, object of afstand</li></ul>
+        <p id="map-info" class="hint">Na het zoeken verschijnen de resultaten van deze pagina met een locatie op de kaart.</p></section>
+    </div>
+    <details class="technical"><summary>Toon Elasticsearch-query</summary><h2>In gewone taal</h2><ul id="query-explain"><li>Er is nog geen zoekactie uitgevoerd.</li></ul><h2>JSON</h2><p>De request die naar de Elasticsearch-service is gestuurd. Lange lijsten en vlakken zijn ingekort weergegeven.</p><pre id="query-json">Er is nog geen zoekactie uitgevoerd.</pre><h2>Weging in de JSON</h2><p>In <code>query_string.fields</code> staat achter naam, locatienaam, type en functie <code>^3</code>. Dat is de weging: een treffer in dat veld telt 3× zo zwaar voor de score. In <code>highlight</code> staan dezelfde velden zonder <code>^3</code>. Facetten (<code>aggs</code>) en filters (<code>post_filter</code>) gebruiken geen score; die tellen dus precies hetzelfde.</p></details>
+  <dialog id="help" aria-labelledby="help-title">
+    <div class="help-head"><h2 id="help-title">Zoekhulp</h2><button type="button" id="help-close" aria-label="Sluit zoekhulp">×</button></div>
+    <p>De zoekbalk gebruikt de Elasticsearch <code>query_string</code>-syntax. Klik op een voorbeeld om het meteen te proberen. Er wordt gezocht in het veld dat bij <strong>Zoek in</strong> staat.</p>
+    <h3>Wat zit er in de index?</h3>
+    <table>
+      <thead><tr><th>Soort</th><th>Aantal</th><th>Wat en waar</th></tr></thead>
+      <tbody>
+        <tr><td>Rijksmonument</td><td>ca. 67.500</td><td>ook voormalige rijksmonumenten; adres, functie, type, stijl, maker, datering, omschrijving, vlak</td></tr>
+        <tr><td>Complex</td><td>ca. 2.800</td><td>naam, omschrijving, onderdelen (rijksmonumenten)</td></tr>
+        <tr><td>Gezicht</td><td>472</td><td>stads- en dorpsgezichten met hun vlak</td></tr>
+        <tr><td>Werelderfgoed</td><td>18</td><td>kern- en bufferzones met hun vlak</td></tr>
+        <tr><td>Archeologisch terrein</td><td>ca. 13.000</td><td>waardering, omschrijving; locatie van het rijksmonument waarin het ligt (als dat er is)</td></tr>
+        <tr><td>Onderzoeksgebied</td><td>ca. 113.600</td><td>omschrijving, gemeente, vlak</td></tr>
+        <tr><td>Vondstlocatie</td><td>ca. 111.900</td><td>verwerving, omschrijving; locatie van het onderzoeksgebied waarin het ligt</td></tr>
+        <tr><td>Archeologisch complex</td><td>ca. 360.400</td><td>type (ABR), periode; ligt in een vondstlocatie, terrein of onderzoeksgebied</td></tr>
+        <tr><td>Grondspoor</td><td>ca. 92.700</td><td>type, periode; ligt in een vondstlocatie</td></tr>
+        <tr><td>Vondst</td><td>ca. 446.900</td><td>type, materiaal, periode, aantal; ligt in een vondstlocatie</td></tr>
+      </tbody>
+    </table>
+    <p>Archeologische complexen, grondsporen en vondsten hebben geen eigen locatie. Je vindt ze ruimtelijk via hun onderzoeksgebied: kies bij een onderzoeksgebied of vondstlocatie <strong>Toon wat erin ligt</strong>.</p>
+    <h3>Nederlandse taal</h3>
+    <ul>
+      <li><strong>Meervoud</strong> wordt herkend: <button type="button" data-example="boerderijen">boerderijen</button> vindt ook boerderij, <button type="button" data-example="paalgaten">paalgaten</button> ook paalgat, <button type="button" data-example="urnenvelden">urnenvelden</button> ook urnenveld.</li>
+      <li><strong>Samenstellingen</strong>: <button type="button" data-example="molen">molen</button> vindt ook windmolen en korenmolen, <button type="button" data-example="kuil">kuil</button> ook afvalkuil en haardkuil, <button type="button" data-example="kapel">kapel</button> ook doopkapel (maar geen dakkapel).</li>
+      <li><strong>Vaste lijsten</strong>: <button type="button" data-example="terp">terp</button> vindt ook huisterp, dorpsterp en wierde (maar geen waterput); <button type="button" data-example="graf">graf</button> ook grafheuvel en crematiegraf; <button type="button" data-example="paal">paal</button> ook paalkuil en grenspaal.</li>
+      <li><strong>Synoniemen</strong>: <button type="button" data-example="kerk">kerk</button> vindt ook parochiekerk en dorpskerk, <button type="button" data-example="keramiek">keramiek</button> ook aardewerk, steengoed en porselein, <button type="button" data-example="hunebed">hunebed</button> ook megalietgraf.</li>
+      <li>Wil je dat niet, kies dan bij <strong>Zoek in</strong> de optie <strong>Exact</strong>.</li>
+    </ul>
+    <h3>Datering</h3>
+    <p>Met <strong>Datering</strong> vind je objecten waarvan de periode overlapt met de jaren die je invult. Bij archeologie zijn dat de jaren van de ABR-periode (bijv. Romeinse Tijd: 12 v.Chr. tot 450), bij monumenten de jaren van bouw, verbouwing of restauratie. Een monument met meerdere gebeurtenissen telt mee als één ervan overlapt. Voorbeeld: <button type="button" data-example="aardewerk" data-van="-12" data-tot="450" data-soort="vondsten">Romeins aardewerk</button>.</p>
+    <h3 id="help-volgorde">Volgorde: hoe bepaalt de demo wat bovenaan staat?</h3>
+    <p>Bij sorteren op <strong>Relevantie</strong> geeft Elasticsearch elk resultaat een score (het BM25-model). De score is hoger als het zoekwoord zeldzaam is in de hele index, vaker in het veld voorkomt, in een kort veld staat, of in een veld met gewicht. Naam, locatienaam, type en functie tellen 3× zo zwaar (<code>^3</code>). De weging verandert <strong>alleen de volgorde</strong>, niet welke en hoeveel objecten je vindt. Kies je bij <strong>Sorteer op</strong> iets anders dan relevantie, dan speelt de score geen rol.</p>
+    <h3>Combineren</h3>
+    <table>
+      <thead><tr><th>Syntax</th><th>Betekenis</th><th>Voorbeeld</th></tr></thead>
+      <tbody>
+        <tr><td><code>AND</code></td><td>beide woorden moeten voorkomen</td><td><button type="button" data-example="ijzer AND brug">ijzer AND brug</button></td></tr>
+        <tr><td><code>OR</code></td><td>minimaal één van de woorden</td><td><button type="button" data-example="terp OR wierde">terp OR wierde</button></td></tr>
+        <tr><td><code>NOT</code></td><td>sluit een woord uit</td><td><button type="button" data-example="kasteel AND NOT ruïne">kasteel AND NOT ruïne</button></td></tr>
+        <tr><td><code>( … )</code></td><td>voorwaarden groeperen</td><td><button type="button" data-example="(kasteel OR buitenplaats) AND gracht">(kasteel OR buitenplaats) AND gracht</button></td></tr>
+        <tr><td><code>"…"</code></td><td>exacte woordcombinatie</td><td><button type="button" data-example='"gesmeed ijzer"'>"gesmeed ijzer"</button></td></tr>
+        <tr><td><code>*</code></td><td>willekeurig vervolg (woorddeel)</td><td><button type="button" data-example="molen*">molen*</button></td></tr>
+        <tr><td><code>~</code></td><td>vergelijkbare spelling (tikfouten)</td><td><button type="button" data-example="kasteeel~">kasteeel~</button></td></tr>
+      </tbody>
+    </table>
+    <h3>Binnen een gebied, object of afstand</h3>
+    <ul>
+      <li><strong>Binnen gezicht of werelderfgoed</strong>: alles wat helemaal binnen het vlak valt (<code>geo_shape</code>, <code>within</code>). Ook de geleende locatie telt mee, dus ook vondstlocaties waarvan het onderzoeksgebied binnen het vlak valt.</li>
+      <li><strong>Toon wat erin ligt</strong> (bij een rijksmonument, terrein, onderzoeksgebied of vondstlocatie): alles wat erin ligt, op alle niveaus. Bij een onderzoeksgebied zijn dat de vondstlocaties en alle complexen, grondsporen en vondsten daarin.</li>
+      <li><strong>Toon onderdelen</strong> (bij een complex): de rijksmonumenten van het complex.</li>
+      <li><strong>In de buurt</strong>: alles binnen 500 m; de afstand is daarna aan te passen (100 m tot 2 km).</li>
+    </ul>
+    <h3>Goed om te weten</h3>
+    <ul>
+      <li><strong>Operatoren in hoofdletters.</strong> <code>and</code>, <code>en</code> of <code>of</code> zijn gewone zoekwoorden.</li>
+      <li><strong>Zonder operator betekent een spatie OR.</strong> <code>kasteel gracht</code> vindt alles met kasteel <em>of</em> gracht.</li>
+      <li><strong>Hoofdletters en accenten maken niet uit</strong>: <button type="button" data-example="ruine">ruine</button> vindt ook ruïne.</li>
+      <li><strong>Nummers</strong>: rijksmonumenten, complexen, gezichten en werelderfgoed hebben hun eigen nummer; archeologische objecten het CHO-nummer (het getal in de URI). Archis-nummers zijn ook doorzoekbaar.</li>
+      <li>Vertrouwelijke archeologische objecten staan erin met hun locatie, zoals in de bron. Het filter <strong>Vertrouwelijkheid</strong> laat zien welke het zijn.</li>
+      <li>Een jokerteken aan het begin (<code>*steel</code>) is uitgeschakeld.</li>
+    </ul>
+  </dialog>
+  </div>
+  </main>
+  <footer class="site-footer"><div class="bar"><div class="wrap"><p><strong>Dit is een demo.</strong> Bouw hier geen applicaties of andere afhankelijkheden op. De scripts, index en service kunnen zonder aankondiging wijzigen of verdwijnen.</p></div></div>
+    <div class="wrap"><p>Deze demo gebruikt een zoekprojectie van de dataset <a href="https://linkeddata.cultureelerfgoed.nl/rce/cho" target="_blank" rel="noopener noreferrer">CHO</a> van de Rijksdienst voor het Cultureel Erfgoed (<a href="https://linkeddata.cultureelerfgoed.nl/rce/erfgoed" target="_blank" rel="noopener noreferrer">rce/erfgoed</a>) en is geen vervanging van het <a href="https://monumentenregister.cultureelerfgoed.nl/" target="_blank" rel="noopener noreferrer">Rijksmonumentenregister</a> of Archis. Elk resultaat linkt naar het volledige object in CHO. Zie ook de <a href="https://erfgoed-sdo-elastic-demo.jolietjakeblues64.workers.dev/" target="_blank" rel="noopener noreferrer">Erfgoed SDO/Elastic demo</a> en de <a href="https://elastic-archeologie.jolietjakeblues64.workers.dev/" target="_blank" rel="noopener noreferrer">Archeologie SDO/Elastic demo</a>.</p></div></footer>
+</body>
+</html>
