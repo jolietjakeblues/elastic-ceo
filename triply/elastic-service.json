@@ -1,0 +1,1106 @@
+{
+  "type": "elasticSearch",
+  "name": "Erfgoed-ceo",
+  "config": {
+    "indexTemplates": [
+      {
+        "name": "ceo-elastic",
+        "index_patterns": "index",
+        "composed_of": [
+          "ceo-elastic-tekst",
+          "ceo-elastic-typen"
+        ]
+      }
+    ],
+    "componentTemplates": [
+      {
+        "name": "ceo-elastic-tekst",
+        "template": {
+          "settings": {
+            "analysis": {
+              "filter": {
+                "nl_stop": {
+                  "type": "stop",
+                  "stopwords": "_dutch_"
+                },
+                "nl_stam": {
+                  "type": "stemmer",
+                  "language": "dutch_kp"
+                },
+                "nl_meervoud": {
+                  "type": "stemmer_override",
+                  "rules": [
+                    "molen, molens => molen",
+                    "toren, torens => toren",
+                    "kasteel, kastelen => kasteel",
+                    "gracht, grachten => gracht",
+                    "sluis, sluizen => sluis",
+                    "dijk, dijken => dijk",
+                    "woning, woningen => woning",
+                    "paalgat, paalgaten => paalgat",
+                    "paalspoor, paalsporen => paalspoor",
+                    "graf, graven => graf",
+                    "crematiegraf, crematiegraven => crematiegraf",
+                    "inhumatiegraf, inhumatiegraven => inhumatiegraf",
+                    "vlakgraf, vlakgraven => vlakgraf",
+                    "familiegraf, familiegraven => familiegraf",
+                    "kindergraf, kindergraven => kindergraf",
+                    "diergraf, diergraven => diergraf",
+                    "dierengraf, dierengraven => dierengraf",
+                    "urnenveld, urnenvelden => urnenveld",
+                    "grafveld, grafvelden => grafveld"
+                  ]
+                },
+                "nl_samenstellingen": {
+                  "type": "dictionary_decompounder",
+                  "only_longest_match": true,
+                  "min_subword_size": 4,
+                  "word_list": [
+                    "molen",
+                    "toren",
+                    "boerderij",
+                    "schuur",
+                    "woning",
+                    "brug",
+                    "sluis",
+                    "gemaal",
+                    "poort",
+                    "gracht",
+                    "kasteel",
+                    "fort",
+                    "school",
+                    "pakhuis",
+                    "kapel",
+                    "klooster",
+                    "gasthuis",
+                    "hofje",
+                    "villa",
+                    "station",
+                    "fabriek",
+                    "watertoren",
+                    "vuurtoren",
+                    "begraafplaats",
+                    "grafheuvel",
+                    "wierde",
+                    "bastion",
+                    "kazerne",
+                    "orgel",
+                    "luidklok",
+                    "uurwerk",
+                    "kuil",
+                    "greppel",
+                    "aardewerk",
+                    "keramiek",
+                    "haard",
+                    "schrabber"
+                  ]
+                },
+                "erfgoed_synoniemen": {
+                  "type": "synonym_graph",
+                  "synonyms": [
+                    "kerk, godshuis => kerk, godshuis, kerkgebouw, parochiekerk, dorpskerk, kruiskerk, zaalkerk, hallenkerk, schuilkerk, kerktoren",
+                    "dijk => dijk, liniedijk, lekdijk, zeedijk, maasdijk, waaldijk, rivierdijk, kanaaldijk, ijsseldijk, lingedijk, grebbeliniedijk, spoordijk",
+                    "begraafplaats, kerkhof, dodenakker",
+                    "boerderij, hoeve",
+                    "kasteel, burcht",
+                    "pastorie, predikantswoning",
+                    "woonhuis, woning",
+                    "terp, terpen, wierde, wierden => terp, wierde, huisterp, dorpsterp, kerkterp, woonterp, veenterp, hoogterp, kernterp, terpje, terpdorp, terprest, terprestant, terplaag, terpzool, terplichaam, terpaardewerk, terpenaardewerk, terpboerderij, terpbebouwing, terpvorming, terpafgraving, huiswierde, dorpswierde, kerkwierde, wierdelaag, wierdezool, wierdelichaam, wierdedorp, wierdebebouwing, wierdekerkhof",
+                    "vesting, vestingwerk",
+                    "keramiek => keramiek, aardewerk, steengoed, porselein, faience, fayence",
+                    "hunebed, megalietgraf",
+                    "graf => graf, grafheuvel, grafmonument, grafveld, crematiegraf, inhumatiegraf, mensengraf, diergraf, dierengraf, familiegraf, kindergraf, vlakgraf, massagraf, urnengraf, megalietgraf, grafkapel, grafkelder, grafkuil, grafkist, grafsteen, grafzerk, grafteken, grafkruis, grafcultuur",
+                    "paal, palen => paal, paalkuil, paalgat, paalspoor, paalkrans, paalrij, palenrij, paalfundering, paalkern, grenspaal, trappaal, stoeppaal, dijkpaal, mijlpaal, nummerpaal, heipaal, hoekpaal, lantaarnpaal, gerechtspaal, galgpaal"
+                  ]
+                }
+              },
+              "analyzer": {
+                "nl_index": {
+                  "type": "custom",
+                  "char_filter": [
+                    "dubbele_punt",
+                    "geen_dakkapel",
+                    "geen_kapelaan",
+                    "geen_kapelle"
+                  ],
+                  "tokenizer": "standard",
+                  "filter": [
+                    "lowercase",
+                    "asciifolding",
+                    "nl_meervoud",
+                    "nl_samenstellingen",
+                    "nl_meervoud",
+                    "nl_stop",
+                    "nl_stam"
+                  ]
+                },
+                "nl_zoeken": {
+                  "type": "custom",
+                  "char_filter": [
+                    "dubbele_punt",
+                    "geen_dakkapel",
+                    "geen_kapelaan",
+                    "geen_kapelle"
+                  ],
+                  "tokenizer": "standard",
+                  "filter": [
+                    "lowercase",
+                    "asciifolding",
+                    "nl_meervoud",
+                    "erfgoed_synoniemen",
+                    "nl_stop",
+                    "nl_stam"
+                  ]
+                },
+                "nl_exact": {
+                  "type": "custom",
+                  "char_filter": [
+                    "dubbele_punt"
+                  ],
+                  "tokenizer": "standard",
+                  "filter": [
+                    "lowercase",
+                    "asciifolding"
+                  ]
+                }
+              },
+              "char_filter": {
+                "dubbele_punt": {
+                  "type": "pattern_replace",
+                  "pattern": ":",
+                  "replacement": " "
+                },
+                "geen_dakkapel": {
+                  "type": "pattern_replace",
+                  "pattern": "dakkapel",
+                  "replacement": "dakcapel",
+                  "flags": "CASE_INSENSITIVE"
+                },
+                "geen_kapelaan": {
+                  "type": "pattern_replace",
+                  "pattern": "kapela",
+                  "replacement": "capela",
+                  "flags": "CASE_INSENSITIVE"
+                },
+                "geen_kapelle": {
+                  "type": "pattern_replace",
+                  "pattern": "kapelle(?![nt])",
+                  "replacement": "capelle",
+                  "flags": "CASE_INSENSITIVE"
+                },
+                "soort_uit_uri": {
+                  "type": "pattern_replace",
+                  "pattern": "^.*/id/([a-z]+)/.*$",
+                  "replacement": "$1"
+                }
+              },
+              "normalizer": {
+                "soort": {
+                  "type": "custom",
+                  "char_filter": [
+                    "soort_uit_uri"
+                  ],
+                  "filter": [
+                    "lowercase"
+                  ]
+                }
+              }
+            }
+          },
+          "mappings": {
+            "dynamic_templates": [
+              {
+                "tekst_nl": {
+                  "match_mapping_type": "string",
+                  "mapping": {
+                    "type": "text",
+                    "analyzer": "nl_index",
+                    "search_analyzer": "nl_zoeken",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      },
+                      "exact": {
+                        "type": "text",
+                        "analyzer": "nl_exact"
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "@id": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "soort": {
+                    "type": "keyword",
+                    "normalizer": "soort"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#naam": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#locatienaam": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#locatieomschrijving": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#omschrijving": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#overigeOmschrijving": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#toelichting": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#functie": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#hoofdfunctie": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#oorspronkelijkeFunctie": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#huidigeFunctie": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#type": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#typegroep": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#materiaal": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#materiaalgroep": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#stijl": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#actor": {
+                "type": "text",
+                "analyzer": "nl_index",
+                "search_analyzer": "nl_zoeken",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "exact": {
+                    "type": "text",
+                    "analyzer": "nl_exact"
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#volledigAdres": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#openbareRuimte": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#huisnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#huisletter": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#huisnummertoevoeging": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#postcode": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#woonplaatsnaam": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#gemeente": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#provincie": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#kadastraleGemeente": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#sectie": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#perceelnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#kadasterdeel": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#kadasterdeelnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#verblijfsobjectIdentificatie": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#juridischeStatus": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#monumentAard": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#bebouwdeKomType": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#bouwkundigeStaat": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#gezichtsstatus": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#werelderfgoedstatus": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#werelderfgoedType": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#zone": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archeologischeWaardering": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#vertrouwelijk": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#verwerving": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#toestand": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#gebeurtenis": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#beginperiode": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#eindperiode": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#rol": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#cultuurhistorischObjectnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#rijksmonumentnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#complexnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#gezichtsnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#werelderfgoednummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archis2Monumentnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archis2Waarnemingsnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archis2Vondstmeldingsnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archis2Complexnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#archis2Vondstnummer": {
+                "type": "text",
+                "analyzer": "nl_exact",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "getal": {
+                    "type": "long",
+                    "ignore_malformed": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "ceo-elastic-typen",
+        "template": {
+          "mappings": {
+            "properties": {
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#klasse": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftJuridischeStatus": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftMonumentAard": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftBebouwdeKomType": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftGezichtsstatus": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftWerelderfgoedstatus": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftArcheologischeWaardering": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftVertrouwelijkAanduiding": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftToestand": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftVerwerving": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftFunctieNaam": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftTypeNaam": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftMateriaalNaam": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftStijlEnCultuurNaam": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftGemeente": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftProvincie": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftVerblijfsobject": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftRijksmonument": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#heeftHoofdobject": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#isOnderdeelVanComplex": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#isHoofdobjectVanComplex": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#ligtInObject": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#bevatObject": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#onderzoeksgebied": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#afbeelding": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "http://www w3 org/2000/01/rdf-schema#seeAlso": {
+                "type": "keyword",
+                "ignore_above": 1024
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#beginjaar": {
+                "type": "integer",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#eindjaar": {
+                "type": "integer",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#aantalVondsten": {
+                "type": "integer",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#aantalGrondsporen": {
+                "type": "integer",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#aantalBeelden": {
+                "type": "integer",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#registratiedatum": {
+                "type": "date",
+                "format": "strict_date_optional_time",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#datumInschrijvingInMonumentenregister": {
+                "type": "date",
+                "format": "strict_date_optional_time",
+                "ignore_malformed": true
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#internationaalKenteken": {
+                "type": "boolean"
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#bijzonderGebied": {
+                "type": "boolean"
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#buitenplaats": {
+                "type": "boolean"
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#indicatieArcheologischeMonumentenKaartWaardig": {
+                "type": "boolean"
+              },
+              "https://linkeddata cultureelerfgoed nl/def/ceo-elastic#geleendeGeometrie": {
+                "type": "geo_shape",
+                "ignore_malformed": true
+              },
+              "http://www opengis net/ont/geosparql#asWKT": {
+                "type": "geo_shape",
+                "ignore_malformed": true
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

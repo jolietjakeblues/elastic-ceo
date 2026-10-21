@@ -1,0 +1,394 @@
+# Deel 3 van 7: ceo:Grondsporen
+# Gemaakt met node construct/maak-delen.mjs uit construct/alles.rq. Niet met de hand bewerken.
+
+PREFIX ceo: <https://linkeddata.cultureelerfgoed.nl/def/ceo#>
+PREFIX ceox: <https://linkeddata.cultureelerfgoed.nl/def/ceox#>
+PREFIX ceo-elastic: <https://linkeddata.cultureelerfgoed.nl/def/ceo-elastic#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX edm: <http://www.europeana.eu/schemas/edm/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rnce: <https://data.cultureelerfgoed.nl/id/rnce#>
+PREFIX graph: <https://linkeddata.cultureelerfgoed.nl/graph/>
+
+# Zoekprojectie ceo-elastic: alle erfgoedobjecten uit rce/cho, één subject per object,
+# zodat de Elasticsearch-service één document per object maakt. Velden: zie docs/schema.md.
+#
+# Opbouw: het blok "objecten" kiest de objecten (tien klassen, ca. 1,2 mln). Elk UNION-blok
+# is één veld of één groep velden en levert zelf ?s ?p ?o op. In een blok staat nooit meer dan
+# één meervoudig pad, dus geen kruisproducten (3 materialen x 4 perioden x ...).
+# Elk blok kan ook los draaien (zelfde PREFIX-en, CONSTRUCT en objecten, alleen dat blok);
+# de uitkomst is dan een deel van dezelfde triples.
+#
+# Namen: alle velden staan in ceo-elastic:, zodat projectie en CEO niet door elkaar lopen.
+# In de blokken heet een veld dat uit CEO komt nog naar zijn CEO-property (ceo:naam,
+# ceo:heeftTypeNaam), zodat je ziet waar het vandaan komt. De BIND helemaal onderaan maakt van elke
+# ceo:-property ceo-elastic: met dezelfde lokale naam (ceo:naam -> ceo-elastic:naam).
+# Waarden (begrippen, objecten, de klasse) blijven CEO-URI's. geo:asWKT en rdfs:seeAlso blijven.
+#
+# Regels:
+# - Een blok gebruikt alleen ?s van buiten. SPARQL rekent een UNION-blok los uit, dus een BIND
+#   op een andere buitenste variabele (bijv. ?klasse) is in het blok leeg.
+# - Labels altijd met STR(): sommige labels staan dubbel, met en zonder @nl.
+# - rn-begrip <rn/2/uuid> is in ABR <abr/2/uuid>. Een berekende ABR-URI eerst met een gewone
+#   triple vastleggen (skos:prefLabel), pas daarna skos:broader+ (anders loopt Virtuoso alle
+#   ABR-begrippen per object af).
+# - Pad en label van gemeente en provincie in hetzelfde blok (graph owms), zie docs/cho-data.md.
+
+CONSTRUCT { ?s ?veld ?o }
+WHERE {
+    # --- objecten (deel 3 van 7, zie construct/maak-delen.mjs)
+    { SELECT ?s WHERE {
+        GRAPH graph:instanties-rce { ?s a ?klasse }
+        VALUES ?klasse { ceo:Grondsporen }
+    } }
+    # --- einde objecten
+
+    {
+        # klasse als waarde, niet als rdf:type: het document is geen CEO-object
+        GRAPH graph:instanties-rce { ?s a ?o }
+        FILTER(?o IN (ceo:Rijksmonument, ceo:Complex, ceo:Gezicht, ceo:Werelderfgoed,
+                      ceo:ArcheologischTerrein, ceo:ArcheologischOnderzoeksgebied, ceo:Vondstlocatie,
+                      ceo:ArcheologischComplex, ceo:Grondsporen, ceo:Vondsten))
+        BIND(ceo-elastic:klasse AS ?p)
+    }
+    UNION
+    {
+        # CEO zoals het is: waarden, relaties en begrippen (URI) die al op het object staan
+        GRAPH graph:instanties-rce { ?s ?p ?o }
+        VALUES ?p {
+            ceo:cultuurhistorischObjectnummer ceo:rijksmonumentnummer ceo:complexnummer
+            ceo:gezichtsnummer ceo:werelderfgoednummer
+            ceo:archis2Monumentnummer ceo:archis2Waarnemingsnummer ceo:archis2Vondstmeldingsnummer
+            ceo:archis2Complexnummer ceo:archis2Vondstnummer
+            ceo:aantalVondsten ceo:aantalGrondsporen
+            ceo:datumInschrijvingInMonumentenregister ceo:registratiedatum
+            ceo:internationaalKenteken ceo:kadasterdeel ceo:kadasterdeelnummer
+            ceo:indicatieArcheologischeMonumentenKaartWaardig ceo:bijzonderGebied
+            ceo:ligtInObject ceo:bevatObject ceo:heeftRijksmonument ceo:heeftHoofdobject
+            ceo:isOnderdeelVanComplex ceo:isHoofdobjectVanComplex
+            ceo:heeftJuridischeStatus ceo:heeftMonumentAard ceo:heeftBebouwdeKomType
+            ceo:heeftGezichtsstatus ceo:heeftWerelderfgoedstatus ceo:heeftArcheologischeWaardering
+            ceo:heeftVertrouwelijkAanduiding ceo:heeftToestand ceo:heeftVerwerving
+        }
+    }
+    UNION
+    {
+        # begrip op het object: label
+        GRAPH graph:instanties-rce { ?s ?bron ?begrip . ?begrip skos:prefLabel ?label }
+        VALUES (?bron ?p) {
+            (ceo:heeftJuridischeStatus ceo-elastic:juridischeStatus)
+            (ceo:heeftMonumentAard ceo-elastic:monumentAard)
+            (ceo:heeftBebouwdeKomType ceo-elastic:bebouwdeKomType)
+            (ceo:heeftGezichtsstatus ceo-elastic:gezichtsstatus)
+            (ceo:heeftWerelderfgoedstatus ceo-elastic:werelderfgoedstatus)
+            (ceo:heeftArcheologischeWaardering ceo-elastic:archeologischeWaardering)
+            (ceo:heeftVertrouwelijkAanduiding ceo-elastic:vertrouwelijk)
+            (ceo:heeftToestand ceo-elastic:toestand)
+            (ceo:heeftVerwerving ceo-elastic:verwerving)
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # vertrouwelijkheid van het object waarin het ligt (vondsten, grondsporen en complexen in een vondstlocatie)
+        GRAPH graph:instanties-rce { ?s ceo:ligtInObject/ceo:heeftVertrouwelijkAanduiding/skos:prefLabel ?label }
+        BIND(ceo-elastic:vertrouwelijk AS ?p)
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # onderzoeksgebied van de vondstlocatie waarin het object ligt: "alles in een onderzoeksgebied"
+        GRAPH graph:instanties-rce { ?s ceo:ligtInObject ?vondstlocatie .
+                                     ?vondstlocatie a ceo:Vondstlocatie ; ceo:ligtInObject ?o .
+                                     ?o a ceo:ArcheologischOnderzoeksgebied }
+        BIND(ceo-elastic:onderzoeksgebied AS ?p)
+    }
+    UNION
+    {
+        # naam en locatieaanduiding
+        GRAPH graph:instanties-rce { ?s ?pad ?knoop . ?knoop ?p ?o }
+        VALUES (?pad ?p) {
+            (ceo:heeftNaam ceo:naam)
+            (ceo:heeftLocatieAanduiding ceo:locatienaam)
+            (ceo:heeftLocatieAanduiding ceo:locatieomschrijving)
+        }
+    }
+    UNION
+    {
+        # omschrijving: formeel standpunt in ceo:omschrijving, de rest apart (archeologie is meestal niet formeel)
+        GRAPH graph:instanties-rce { ?s ceo:heeftOmschrijving ?omschrijving .
+                                     ?omschrijving ceo:omschrijving ?o .
+                                     OPTIONAL { ?omschrijving ceo:formeelStandpunt ?formeel } }
+        BIND(IF(COALESCE(?formeel, false), ceo:omschrijving, ceo-elastic:overigeOmschrijving) AS ?p)
+    }
+    UNION
+    {
+        # toelichting bij een kennisregistratie (functie, stijl, gebeurtenis), bijv. "zomerhuis"
+        GRAPH graph:instanties-rce { ?s ceo:heeftKennisregistratie/ceo:kennisregistratieToelichting ?o }
+        BIND(ceo-elastic:toelichting AS ?p)
+    }
+    UNION
+    {
+        # adres (BAG)
+        GRAPH graph:instanties-rce { ?s ceo:heeftBasisregistratieRelatie/ceo:heeftBAGRelatie ?bag . ?bag ?p ?o }
+        VALUES ?p { ceo:volledigAdres ceo:openbareRuimte ceo:huisnummer ceo:huisletter ceo:huisnummertoevoeging
+                    ceo:postcode ceo:woonplaatsnaam ceo:verblijfsobjectIdentificatie ceo:heeftVerblijfsobject }
+    }
+    UNION
+    {
+        # kadaster (BRK); ceo:gemeentenaam is hier de kadastrale gemeente, niet de gemeente
+        GRAPH graph:instanties-rce { ?s ceo:heeftBasisregistratieRelatie/ceo:heeftBRKRelatie ?brk . ?brk ?bron ?o }
+        VALUES (?bron ?p) {
+            (ceo:sectie ceo:sectie)
+            (ceo:perceelnummer ceo:perceelnummer)
+            (ceo:gemeentenaam ceo-elastic:kadastraleGemeente)
+        }
+    }
+    UNION
+    {
+        # gemeente en provincie: URI zoals in CEO
+        GRAPH graph:instanties-rce { ?s ceo:heeftBasisregistratieRelatie ?br . ?br ?p ?o }
+        VALUES ?p { ceo:heeftGemeente ceo:heeftProvincie }
+    }
+    UNION
+    {
+        # gemeente en provincie: label (pad en label in één blok)
+        GRAPH graph:instanties-rce { ?s ceo:heeftBasisregistratieRelatie ?br . ?br ?bron ?gebied }
+        GRAPH graph:owms { ?gebied skos:prefLabel ?label }
+        VALUES (?bron ?p) {
+            (ceo:heeftGemeente ceo-elastic:gemeente)
+            (ceo:heeftProvincie ceo-elastic:provincie)
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # geometrie (WGS84); RD (ceo:asWKT-RD) niet, die zou Elastic als lengte/breedte lezen
+        GRAPH graph:instanties-rce { ?s ceo:heeftGeometrie/geo:asWKT ?o }
+        BIND(geo:asWKT AS ?p)
+    }
+    UNION
+    {
+        # zone van werelderfgoed: kern- en bufferzone zijn aparte objecten, het type staat bij de geometrie
+        GRAPH graph:instanties-rce { ?s ceo:heeftGeometrie/ceo:heeftGeometrieType/skos:prefLabel ?label }
+        BIND(ceo-elastic:zone AS ?p)
+        BIND(REPLACE(STR(?label), "^property$", "kernzone") AS ?o)
+    }
+    UNION
+    {
+        # geleende geometrie: terrein van het rijksmonument, vondstlocatie van het onderzoeksgebied
+        # (dat is het hele gebied, niet de vindplek)
+        GRAPH graph:instanties-rce { ?s ceo:ligtInObject ?ouder . ?ouder a ?ouderklasse ; ceo:heeftGeometrie/geo:asWKT ?o .
+                                     ?s a ?klasse_ }
+        VALUES (?klasse_ ?ouderklasse) {
+            (ceo:ArcheologischTerrein ceo:Rijksmonument)
+            (ceo:Vondstlocatie ceo:ArcheologischOnderzoeksgebied)
+        }
+        BIND(ceo-elastic:geleendeGeometrie AS ?p)
+    }
+    UNION
+    {
+        # functie (rijksmonumenten): URI zoals in CEO
+        GRAPH graph:instanties-rce { ?s ceo:heeftKennisregistratie ?functie .
+                                     ?functie a ceo:Functie ; ceo:heeftFunctieNaam ?o }
+        BIND(ceo:heeftFunctieNaam AS ?p)
+    }
+    UNION
+    {
+        # functie: label, per soort functie
+        GRAPH graph:instanties-rce { ?s ?pad ?functie . ?functie a ceo:Functie ; ceo:heeftFunctieNaam/skos:prefLabel ?label }
+        VALUES (?pad ?p) {
+            (ceo:heeftKennisregistratie ceo-elastic:functie)
+            (ceo:heeftOorspronkelijkeFunctie ceo-elastic:oorspronkelijkeFunctie)
+            (ceo:heeftHuidigeFunctie ceo-elastic:huidigeFunctie)
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # hoofdfunctie
+        GRAPH graph:instanties-rce { ?s ceo:heeftKennisregistratie ?functie .
+                                     ?functie a ceo:Functie ; ceo:hoofdfunctie true ; ceo:heeftFunctieNaam/skos:prefLabel ?label }
+        BIND(ceo-elastic:hoofdfunctie AS ?p)
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # bouwkundige staat
+        GRAPH graph:instanties-rce { ?s ceo:heeftBouwkundigeKwaliteit/ceo:heeftBouwkundigeStaat/skos:prefLabel ?label }
+        BIND(ceo-elastic:bouwkundigeStaat AS ?p)
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # type, materiaal, stijl: URI zoals in CEO
+        GRAPH graph:instanties-rce { ?s ?pad ?knoop . ?knoop ?p ?o }
+        VALUES (?pad ?p) {
+            (ceo:heeftType ceo:heeftTypeNaam)
+            (ceo:heeftMateriaal ceo:heeftMateriaalNaam)
+            (ceo:heeftStijlEnCultuur ceo:heeftStijlEnCultuurNaam)
+        }
+    }
+    UNION
+    {
+        # type, materiaal, stijl: ABR-label
+        GRAPH graph:instanties-rce { ?s ?pad ?knoop . ?knoop ?naam ?begrip }
+        VALUES (?pad ?naam ?p) {
+            (ceo:heeftType ceo:heeftTypeNaam ceo-elastic:type)
+            (ceo:heeftMateriaal ceo:heeftMateriaalNaam ceo-elastic:materiaal)
+            (ceo:heeftStijlEnCultuur ceo:heeftStijlEnCultuurNaam ceo-elastic:stijl)
+        }
+        BIND(IRI(REPLACE(STR(?begrip), "/term/id/rn/2/", "/term/id/abr/2/")) AS ?abr)
+        GRAPH <https://data.cultureelerfgoed.nl/term/id/abr/2/thesaurus> {
+            ?abr skos:prefLabel ?label . FILTER(LANG(?label) IN ("nl", ""))
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # type, materiaal, stijl: rn-label als ABR het begrip niet kent (monumenten, gezichten)
+        GRAPH graph:instanties-rce { ?s ?pad ?knoop . ?knoop ?naam ?begrip . ?begrip skos:prefLabel ?label }
+        VALUES (?pad ?naam ?p) {
+            (ceo:heeftType ceo:heeftTypeNaam ceo-elastic:type)
+            (ceo:heeftMateriaal ceo:heeftMateriaalNaam ceo-elastic:materiaal)
+            (ceo:heeftStijlEnCultuur ceo:heeftStijlEnCultuurNaam ceo-elastic:stijl)
+        }
+        BIND(IRI(REPLACE(STR(?begrip), "/term/id/rn/2/", "/term/id/abr/2/")) AS ?abr)
+        FILTER NOT EXISTS { GRAPH <https://data.cultureelerfgoed.nl/term/id/abr/2/thesaurus> { ?abr skos:prefLabel ?x } }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # type en materiaal: bovenliggende ABR-begrippen, zonder het topconcept
+        GRAPH graph:instanties-rce { ?s ?pad ?knoop . ?knoop ?naam ?begrip }
+        VALUES (?pad ?naam ?p) {
+            (ceo:heeftType ceo:heeftTypeNaam ceo-elastic:typegroep)
+            (ceo:heeftMateriaal ceo:heeftMateriaalNaam ceo-elastic:materiaalgroep)
+        }
+        BIND(IRI(REPLACE(STR(?begrip), "/term/id/rn/2/", "/term/id/abr/2/")) AS ?abr)
+        GRAPH <https://data.cultureelerfgoed.nl/term/id/abr/2/thesaurus> {
+            ?abr skos:prefLabel ?x .
+            ?abr skos:broader+ ?groep . ?groep skos:broader ?hoger .
+            ?groep skos:prefLabel ?label . FILTER(LANG(?label) IN ("nl", ""))
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # gebeurtenis (vervaardiging, verbouwing, restauratie, ...)
+        GRAPH graph:instanties-rce { ?s ceo:heeftGebeurtenis/ceo:heeftGebeurtenisNaam/skos:prefLabel ?label }
+        BIND(ceo-elastic:gebeurtenis AS ?p)
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # actor en rol (rijksmonumenten; staan als tekst in instanties-rce)
+        GRAPH graph:instanties-rce { ?s ceo:heeftGebeurtenis/ceo:heeftActorEnRol ?actor . ?actor ?bron ?o }
+        VALUES (?bron ?p) {
+            (ceo:heeftActor ceo-elastic:actor)
+            (ceo:heeftRol ceo-elastic:rol)
+        }
+        FILTER(isLiteral(?o))
+    }
+    UNION
+    {
+        # datering met een periode (archeologie): ABR-label van begin- en eindperiode
+        GRAPH graph:instanties-rce { ?s ceo:heeftGebeurtenis/ceo:heeftDatering ?datering .
+                                     ?datering ?kant ?rand . ?rand ceo:heeftPeriode ?periode }
+        VALUES (?kant ?p) {
+            (ceo:heeftBeginDatering ceo-elastic:beginperiode)
+            (ceo:heeftEindDatering ceo-elastic:eindperiode)
+        }
+        BIND(IRI(REPLACE(STR(?periode), "/term/id/rn/2/", "/term/id/abr/2/")) AS ?abr)
+        GRAPH <https://data.cultureelerfgoed.nl/term/id/abr/2/thesaurus> {
+            ?abr skos:prefLabel ?label . FILTER(LANG(?label) IN ("nl", ""))
+        }
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # datering met een periode: beginjaar van de beginperiode, eindjaar van de eindperiode (negatief = v. Chr.)
+        GRAPH graph:instanties-rce { ?s ceo:heeftGebeurtenis/ceo:heeftDatering ?datering .
+                                     ?datering ?kant ?rand . ?rand ceo:heeftPeriode ?periode }
+        VALUES (?kant ?jaar ?p) {
+            (ceo:heeftBeginDatering rnce:beginYearAbr ceo-elastic:beginjaar)
+            (ceo:heeftEindDatering rnce:endYearAbr ceo-elastic:eindjaar)
+        }
+        BIND(IRI(REPLACE(STR(?periode), "/term/id/rn/2/", "/term/id/abr/2/")) AS ?abr)
+        GRAPH <https://data.cultureelerfgoed.nl/term/id/abr/2/thesaurus> { ?abr skos:prefLabel ?x . ?abr ?jaar ?waarde }
+        BIND(xsd:integer(?waarde) AS ?o)
+    }
+    UNION
+    {
+        # datering met een datum (rijksmonumenten): jaartal in hetzelfde veld als bij archeologie
+        GRAPH graph:instanties-rce { ?s ceo:heeftGebeurtenis/ceo:heeftDatering ?datering .
+                                     ?datering ?kant ?rand . ?rand ceo:datum ?datum }
+        VALUES (?kant ?p) {
+            (ceo:heeftBeginDatering ceo-elastic:beginjaar)
+            (ceo:heeftEindDatering ceo-elastic:eindjaar)
+        }
+        # YEAR() op een xsd:date geeft in Virtuoso niets terug; daarom de eerste vier tekens
+        BIND(xsd:integer(SUBSTR(STR(?datum), 1, 4)) AS ?o)
+    }
+    UNION
+    {
+        # buitenplaats (ceox:RCEBuitenplaats)
+        GRAPH graph:buitenplaatsen { ?s ceox:RCEBuitenplaats ?o }
+        BIND(ceo-elastic:buitenplaats AS ?p)
+    }
+    UNION
+    {
+        # Kennisbank (gezichten) en UNESCO (werelderfgoed)
+        { GRAPH graph:gezicht_hvdl { ?s ceo:wordtGetoondOp ?o } }
+        UNION
+        { GRAPH graph:werelderfgoed_hvdl { ?s ceo:wordtGetoondOp ?o } }
+        BIND(rdfs:seeAlso AS ?p)
+    }
+    UNION
+    {
+        # werelderfgoedtype
+        GRAPH graph:werelderfgoed_hvdl { ?s ceo:heeftWerelderfgoedType/skos:prefLabel ?label }
+        BIND(ceo-elastic:werelderfgoedType AS ?p)
+        BIND(STR(?label) AS ?o)
+    }
+    UNION
+    {
+        # Monumentenregister
+        GRAPH graph:instanties-rce { ?s ?nummerveld ?nummer }
+        VALUES (?nummerveld ?map) {
+            (ceo:rijksmonumentnummer "monumenten")
+            (ceo:complexnummer "complexen")
+        }
+        BIND(rdfs:seeAlso AS ?p)
+        BIND(IRI(CONCAT("https://monumentenregister.cultureelerfgoed.nl/", ?map, "/", STR(?nummer))) AS ?o)
+    }
+    UNION
+    {
+        # beelden: aantal
+        {
+            SELECT ?s (COUNT(DISTINCT ?beeld) AS ?o)
+            WHERE { GRAPH graph:image { ?beeld edm:aggregatedCHO ?s } }
+            GROUP BY ?s
+        }
+        BIND(ceo-elastic:aantalBeelden AS ?p)
+    }
+    UNION
+    {
+        # beelden: één afbeelding
+        {
+            SELECT ?s (SAMPLE(?thumb) AS ?o)
+            WHERE { GRAPH graph:image { ?beeld edm:aggregatedCHO ?s ; foaf:depiction ?thumb } }
+            GROUP BY ?s
+        }
+        BIND(ceo-elastic:afbeelding AS ?p)
+    }
+
+    # elke ceo:-property wordt ceo-elastic: met dezelfde lokale naam
+    # (ceo-elastic: en ceox: blijven buiten schot: het patroon eindigt op "ceo#")
+    BIND(IRI(REPLACE(STR(?p), "^https://linkeddata\\.cultureelerfgoed\\.nl/def/ceo#",
+                     "https://linkeddata.cultureelerfgoed.nl/def/ceo-elastic#")) AS ?veld)
+}
