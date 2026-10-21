@@ -1,0 +1,109 @@
+// Unit-tests voor web/search.js, zonder netwerk. Gebruik: npm test
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, withinClause, nearClause, inhoudClause, partsClause, jaarClauses, BINNEN, fields, soorten, soortVan, nummerVan, queryFields, WEIGHT, toParams, fromParams, describe, toCsv, safeUrl, registerLink, afbeeldingUrl, veiligeZoekvraag, BASE, EXPORT_MAX } from '../web/search.js';
+import { WKT_FIELD, GELEEND_FIELD, mapGeometryFor } from '../web/geo.js';
+
+const kw = key => `${fields[key]}.keyword`;
+test('Zoeken (query) en filteren (post_filter) blijven gescheiden; facetten tellen zonder hun eigen filter', () => {
+  const body = buildQuery({ query: 'kasteel AND gracht', filters: { provincie: ['Gelderland', 'Utrecht'], type: ['Kasteel'] }, page: 1 });
+  assert.equal(body.query.query_string.query, 'kasteel AND gracht');
+  assert.deepEqual(body.post_filter.bool.filter, [{ terms: { [kw('provincie')]: ['Gelderland', 'Utrecht'] } }, { terms: { [kw('type')]: ['Kasteel'] } }]);
+  assert.deepEqual(body.aggs.provincie.filter.bool.filter, [{ terms: { [kw('type')]: ['Kasteel'] } }]);
+  assert.equal(body.aggs.gemeente.filter.bool.filter.length, 2);
+  assert.equal(body.from, 25); assert.equal(body.track_total_hits, true);
+  assert.deepEqual(buildQuery().query, { match_all: {} });
+});
+test('Soort: filter en facet via @id.soort; alle tien soorten', () => {
+  const body = buildQuery({ filters: { soort: ['vondsten', 'grondsporen'] } });
+  assert.deepEqual(body.post_filter.bool.filter, [{ terms: { '@id.soort': ['vondsten', 'grondsporen'] } }]);
+  assert.deepEqual(body.aggs.soort.aggs.values, { terms: { field: '@id.soort', size: 20 } });
+  assert.equal(Object.keys(soorten).length, 10);
+  assert.throws(() => buildQuery({ filters: { soort: ['kerk'] } }));
+  assert.equal(soortVan(`${BASE}archeologischonderzoeksgebied/2038045`), 'archeologischonderzoeksgebied');
+  assert.equal(nummerVan({ '@id': `${BASE}rijksmonument/59284`, [fields.rijksmonumentnummer]: ['14948'] }), '14948');
+  assert.equal(nummerVan({ '@id': `${BASE}vondsten/10000096` }), '10000096');
+});
+test('Datering: overlap met [van, tot], ook in de facetten', () => {
+  assert.deepEqual(jaarClauses({ van: -12, tot: 450 }), [{ range: { [fields.eindjaar]: { gte: -12 } } }, { range: { [fields.beginjaar]: { lte: 450 } } }]);
+  const body = buildQuery({ jaar: { van: -12 } });
+  assert.deepEqual(body.post_filter.bool.filter, [{ range: { [fields.eindjaar]: { gte: -12 } } }]);
+  assert.deepEqual(body.aggs.soort.filter.bool.filter, [{ range: { [fields.eindjaar]: { gte: -12 } } }]);
+  assert.throws(() => buildQuery({ jaar: { van: 1.5 } }), /jaartallen/);
+  assert.throws(() => buildQuery({ jaar: { tot: 'x' } }), /jaartallen/);
+});
+test('Binnen: gebied, bufferzone, complex, inhoud en afstand', () => {
+  for (const ok of ['gezicht:1325', 'werelderfgoed:818', 'bufferzone:759', 'complex:524444', 'in:archeologischonderzoeksgebied:2038045', 'in:vondstlocatie:10032284', 'rond:rijksmonument:36075:500']) assert.ok(BINNEN.test(ok), ok);
+  for (const fout of ['in:vondsten:1', 'rond:vondsten:1:500', 'rond:rijksmonument:1:300', 'kerk:1']) assert.ok(!BINNEN.test(fout), fout);
+  const uri = `${BASE}archeologischonderzoeksgebied/2038045`;
+  assert.deepEqual(inhoudClause(uri).bool.should, [{ term: { [fields.ligtInObject]: uri } }, { term: { [fields.onderzoeksgebied]: uri } }]);
+  const within = withinClause('POLYGON ((5 52, 6 52, 6 53, 5 52))', uri).bool.filter[0].bool.should;
+  assert.deepEqual(within.map(clause => Object.keys(clause.geo_shape)[0]), [WKT_FIELD, GELEEND_FIELD]);
+  assert.equal(nearClause({ lat: 52, lon: 5 }, 500, uri).bool.filter[0].bool.should[0].geo_distance.distance, '500m');
+  assert.deepEqual(partsClause([]), { terms: { '@id.keyword': ['-'] } });
+  const body = buildQuery({ query: 'kuil', binnen: 'in:archeologischonderzoeksgebied:2038045' }, { clause: inhoudClause(uri) });
+  assert.equal(body.query.bool.must[0].query_string.query, 'kuil');
+  assert.throws(() => buildQuery({ binnen: 'gezicht:1325' }), /Onbekend gebied/);
+});
+test('Opzoeken: werelderfgoed is de kernzone, bufferzone de bufferzone', () => {
+  const kern = lookupQuery('werelderfgoed', '818').query.bool, buffer = lookupQuery('bufferzone', '759').query.bool;
+  assert.deepEqual(kern.must_not, [{ term: { [kw('zone')]: 'bufferzone' } }]);
+  assert.deepEqual(buffer.filter.at(-1), { term: { [kw('zone')]: 'bufferzone' } });
+  assert.deepEqual(lookupQuery('gezicht', '1325').query.bool.filter[1], { term: { [kw('gezichtsnummer')]: '1325' } });
+  assert.deepEqual(lookupQuery('vondstlocatie', '1').query.bool.filter[1], { term: { [kw('cultuurhistorischObjectnummer')]: '1' } });
+  assert.equal(buildRelationQuery([`${BASE}vondstlocatie/1`]).query.terms['@id.keyword'].length, 1);
+});
+test('Grenzen: veld, filter, sortering, lengte en resultaatvenster', () => {
+  assert.throws(() => buildQuery({ field: 'arbitrary' }));
+  assert.throws(() => buildQuery({ filters: { arbitrary: ['x'] } }));
+  assert.throws(() => buildQuery({ filters: { provincie: Array.from({ length: 21 }, (_, i) => `p${i}`) } }));
+  assert.throws(() => buildQuery({ sort: 'script' }));
+  assert.throws(() => buildQuery({ page: 400 }));
+  assert.throws(() => buildQuery({ query: 'a'.repeat(501) }));
+  const exported = buildExportQuery({ query: 'molen', filters: { provincie: ['Utrecht'] }, page: 7 });
+  assert.equal(exported.size, EXPORT_MAX); assert.equal(exported.from, 0); assert.equal(exported.aggs, undefined);
+});
+test('Weging: naam, type en functie tellen zwaarder in Alles en Exact, alleen in de query', () => {
+  const body = buildQuery({ query: 'molens' });
+  assert.ok(body.query.query_string.fields.includes(`${fields.naam}^${WEIGHT}`));
+  assert.ok(body.query.query_string.fields.includes(fields.omschrijving));
+  assert.ok(Object.keys(body.highlight.fields).every(key => !key.includes('^')));
+  assert.ok(queryFields('Exact').includes(`${fields.naam}.exact^${WEIGHT}`));
+  assert.deepEqual(queryFields('Materiaal'), [fields.materiaal, fields.materiaalgroep]);
+});
+test('Deelbare URL: heen en terug, onbekende waarden worden genegeerd', () => {
+  const state = { query: 'aardewerk', field: 'Materiaal', filters: { soort: ['vondsten'], provincie: ['Utrecht'] }, jaar: { van: -12, tot: 450 }, page: 2, sort: 'oudste', jokers: false, binnen: 'in:archeologischonderzoeksgebied:2038045' };
+  const search = toParams(state).toString();
+  assert.equal(search, 'q=aardewerk&veld=Materiaal&binnen=in%3Aarcheologischonderzoeksgebied%3A2038045&soort=vondsten&provincie=Utrecht&van=-12&tot=450&sorteer=oudste&pagina=3');
+  assert.deepEqual(fromParams(`?${search}`), { state, active: true });
+  const bad = fromParams('?veld=__proto__&sorteer=x&pagina=-4&onbekend=1&binnen=x:1&soort=kerk&van=abc');
+  assert.deepEqual(bad.state, { query: '', field: 'Alles', filters: {}, jaar: {}, sort: 'relevantie', page: 0, jokers: false, binnen: null });
+  assert.equal(fromParams('?van=1600').active, true);
+});
+test('Uitleg in gewone taal, ook voor datering en inhoud', () => {
+  const lines = describe({ query: 'kuil', jaar: { van: -500, tot: 12 }, binnen: 'in:vondstlocatie:1' }, 'vondstlocatie “X” (1)');
+  assert.match(lines.join(' '), /in vondstlocatie “X” \(1\) ligt, op alle niveaus/);
+  assert.match(lines.join(' '), /tussen 500 v\.Chr\. en 12/);
+});
+test('CSV: puntkomma, quotes en geen formules', () => {
+  const csv = toCsv([{ _source: { '@id': `${BASE}rijksmonument/1`, [fields.rijksmonumentnummer]: ['14948'], [fields.naam]: ['=SOM(A1)'], [fields.omschrijving]: ['regel 1\nmet "quote"; en meer'], [fields.woonplaatsnaam]: ['A', 'B'] } }]);
+  const [header, row] = csv.slice(1).split('\r\n');
+  assert.ok(csv.startsWith('﻿Soort;Nummer;Naam;'));
+  assert.equal(header.split(';').length, 19);
+  assert.match(row, /^Rijksmonument;14948;'=SOM\(A1\);;A \| B;/);
+  assert.match(csv, /"regel 1\nmet ""quote""; en meer"/);
+});
+test('Links en afbeeldingen alleen van bekende bronnen; geen reguliere expressies', () => {
+  assert.equal(safeUrl('javascript:alert(1)'), null);
+  assert.equal(registerLink('https://monumentenregister.cultureelerfgoed.nl/monumenten/14948').label, 'Monumentenregister');
+  assert.equal(registerLink('https://example.org/x'), null);
+  assert.equal(afbeeldingUrl('https://images.memorix.nl/rce/thumb/640x480/x.jpg'), 'https://images.memorix.nl/rce/thumb/640x480/x.jpg');
+  assert.equal(afbeeldingUrl('https://example.org/x.jpg'), null);
+  assert.equal(veiligeZoekvraag('greppel/sloot'), String.raw`greppel\/sloot`);
+});
+test('Kaart: eigen geometrie gaat voor, anders de geleende', () => {
+  const vlak = 'POLYGON ((5 52, 5.1 52, 5.1 52.1, 5 52))';
+  assert.equal(mapGeometryFor({ [WKT_FIELD]: [vlak], [GELEEND_FIELD]: [vlak] }).geleend, undefined);
+  assert.equal(mapGeometryFor({ [GELEEND_FIELD]: [vlak] }).geleend, true);
+  assert.equal(mapGeometryFor({}), null);
+});

@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "zoekdemo", "runtimeExecutable": "node", "runtimeArgs": ["server.mjs"], "port": 4175 }
+  ]
+}
