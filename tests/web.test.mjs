@@ -3,6 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, withinClause, nearClause, inhoudClause, partsClause, jaarClauses, BINNEN, fields, soorten, soortVan, nummerVan, queryFields, WEIGHT, toParams, fromParams, describe, toCsv, safeUrl, registerLink, afbeeldingUrl, veiligeZoekvraag, BASE, EXPORT_MAX } from '../web/search.js';
 import { WKT_FIELD, GELEEND_FIELD, mapGeometryFor } from '../web/geo.js';
+import { zonderFunctiecode } from '../web/search.js';
+import { readFileSync } from 'node:fs';
+import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl } from '../web/oude-kaarten.js';
 
 const kw = key => `${fields[key]}.keyword`;
 test('Zoeken (query) en filteren (post_filter) blijven gescheiden; facetten tellen zonder hun eigen filter', () => {
@@ -31,6 +34,13 @@ test('Datering: overlap met [van, tot], ook in de facetten', () => {
   assert.deepEqual(body.aggs.soort.filter.bool.filter, [{ range: { [fields.eindjaar]: { gte: -12 } } }]);
   assert.throws(() => buildQuery({ jaar: { van: 1.5 } }), /jaartallen/);
   assert.throws(() => buildQuery({ jaar: { tot: 'x' } }), /jaartallen/);
+  assert.throws(() => buildQuery({ jaar: { van: 500, tot: -500 } }), /vóór/);
+  assert.throws(() => buildQuery({ jaar: { van: 1, modus: 'x' } }), /dateren/);
+});
+test('Datering helemaal binnen [van, tot]: alle jaren erin, en wel gedateerd', () => {
+  assert.deepEqual(jaarClauses({ van: -12, tot: 450, modus: 'binnen' }), [{ bool: { filter: [{ exists: { field: fields.beginjaar } }], must_not: [{ range: { [fields.beginjaar]: { lt: -12 } } }, { range: { [fields.eindjaar]: { gt: 450 } } }] } }]);
+  assert.deepEqual(jaarClauses({ tot: 1600, modus: 'binnen' })[0].bool.must_not, [{ range: { [fields.eindjaar]: { gt: 1600 } } }]);
+  assert.deepEqual(jaarClauses({ modus: 'binnen' }), []);
 });
 test('Binnen: gebied, bufferzone, complex, inhoud en afstand', () => {
   for (const ok of ['gezicht:1325', 'werelderfgoed:818', 'bufferzone:759', 'complex:524444', 'in:archeologischonderzoeksgebied:2038045', 'in:vondstlocatie:10032284', 'rond:rijksmonument:36075:500']) assert.ok(BINNEN.test(ok), ok);
@@ -79,11 +89,23 @@ test('Deelbare URL: heen en terug, onbekende waarden worden genegeerd', () => {
   const bad = fromParams('?veld=__proto__&sorteer=x&pagina=-4&onbekend=1&binnen=x:1&soort=kerk&van=abc');
   assert.deepEqual(bad.state, { query: '', field: 'Alles', filters: {}, jaar: {}, sort: 'relevantie', page: 0, jokers: false, binnen: null });
   assert.equal(fromParams('?van=1600').active, true);
+  assert.equal(toParams({ jaar: { van: -12, tot: 450, modus: 'binnen' } }).toString(), 'van=-12&tot=450&jaarmodus=binnen');
+  assert.deepEqual(fromParams('?van=-12&tot=450&jaarmodus=binnen').state.jaar, { van: -12, tot: 450, modus: 'binnen' });
+  assert.deepEqual(fromParams('?jaarmodus=binnen').state.jaar, {});
+  assert.deepEqual(fromParams('?van=500&tot=-500').state.jaar, {});
 });
 test('Uitleg in gewone taal, ook voor datering en inhoud', () => {
   const lines = describe({ query: 'kuil', jaar: { van: -500, tot: 12 }, binnen: 'in:vondstlocatie:1' }, 'vondstlocatie “X” (1)');
   assert.match(lines.join(' '), /in vondstlocatie “X” \(1\) ligt, op alle niveaus/);
-  assert.match(lines.join(' '), /tussen 500 v\.Chr\. en 12/);
+  assert.match(lines.join(' '), /datering \(deels\) valt in 500 v\.Chr\. – 12/);
+  assert.match(describe({ jaar: { van: 1600, modus: 'binnen' } }).join(' '), /helemaal valt in de periode vanaf 1600/);
+});
+test('Functie en type zonder code van de oude functie-indeling, zoals de normalizer in de index', () => {
+  assert.deepEqual(zonderFunctiecode(['Boerderij (M)', 'Boerderij(M)', 'Boerderij(M1)']), ['Boerderij']);
+  assert.deepEqual(zonderFunctiecode(['Woonhuis(K)', 'Kazemat (B10)', 'Pompgebouw(M05)', 'Gerechtsgebouw(EX3)', 'Veldoven(TFU1)']), ['Woonhuis', 'Kazemat', 'Pompgebouw', 'Gerechtsgebouw', 'Veldoven']);
+  assert.deepEqual(zonderFunctiecode(['Lunet(te)', 'aardewerk:onbepaald (ROM)', 'paal (element)', 'weg, (on)verhard']), ['Lunet(te)', 'aardewerk:onbepaald (ROM)', 'paal (element)', 'weg, (on)verhard']);
+  const analyse = JSON.parse(readFileSync(new URL('../triply/nl-analyse.json', import.meta.url), 'utf8'));
+  assert.equal(analyse.char_filter.geen_functiecode.pattern, String.raw`\s*\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\)\s*$`);
 });
 test('CSV: puntkomma, quotes en geen formules', () => {
   const csv = toCsv([{ _source: { '@id': `${BASE}rijksmonument/1`, [fields.rijksmonumentnummer]: ['14948'], [fields.naam]: ['=SOM(A1)'], [fields.omschrijving]: ['regel 1\nmet "quote"; en meer'], [fields.woonplaatsnaam]: ['A', 'B'] } }]);
@@ -106,4 +128,26 @@ test('Kaart: eigen geometrie gaat voor, anders de geleende', () => {
   assert.equal(mapGeometryFor({ [WKT_FIELD]: [vlak], [GELEEND_FIELD]: [vlak] }).geleend, undefined);
   assert.equal(mapGeometryFor({ [GELEEND_FIELD]: [vlak] }).geleend, true);
   assert.equal(mapGeometryFor({}), null);
+});
+test('Oude kaarten: alleen kaarten waarvan de omtrek het punt bevat, met geldige Allmaps-id', () => {
+  const index = { collecties: ['TU Delft Library'], kaarten: [
+    ['002dac72fa326c9e', 'Bonneblad 394 Deventer', 0, 1891, [6, 52, 6.2, 52.3], [[6, 52, 6.2, 52, 6.2, 52.3, 6, 52.3, 6, 52]]],
+    ['00000000000000aa', 'Driehoek', 0, 1700, [6, 52, 6.2, 52.3], [[6, 52, 6.2, 52, 6, 52.3, 6, 52]]],
+    ['../../evil', 'Fout', 0, 1800, [6, 52, 6.2, 52.3], [[6, 52, 6.2, 52, 6.2, 52.3, 6, 52.3, 6, 52]]],
+  ] };
+  assert.deepEqual(kaartenOp(index, 52.25, 6.15).map(k => k.id), ['002dac72fa326c9e']);
+  assert.deepEqual(kaartenOp(index, 52.05, 6.05).map(k => k.id), ['002dac72fa326c9e', '00000000000000aa']);
+  assert.deepEqual(kaartenOp(index, 53, 6.1), []);
+  assert.equal(eersteKeus(kaartenOp(index, 52.05, 6.05)).titel, 'Bonneblad 394 Deventer');
+  assert.equal(kaartLabel({ jaar: 1891, titel: 'Bonneblad 394 Deventer' }), '1891 · Bonneblad 394 Deventer');
+  assert.equal(tegels('002dac72fa326c9e'), 'https://allmaps.xyz/maps/002dac72fa326c9e/{z}/{x}/{y}.png');
+  assert.equal(viewerUrl('002dac72fa326c9e'), 'https://viewer.allmaps.org/?url=https%3A%2F%2Fannotations.allmaps.org%2Fmaps%2F002dac72fa326c9e');
+});
+test('Oude kaarten: de index in web/ heeft het verwachte formaat', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const index = JSON.parse(await readFile(new URL('../web/oude-kaarten.json', import.meta.url), 'utf8'));
+  assert.ok(index.kaarten.length > 1000);
+  assert.ok(index.kaarten.every(([id, titel, c, , bbox, ringen]) => /^[0-9a-f]{16}$/.test(id) && titel && index.collecties[c] && bbox.length === 4 && ringen.length));
+  // Bergkerk Deventer ligt op een Bonneblad.
+  assert.ok(kaartenOp(index, 52.2508, 6.1601).some(k => k.titel.startsWith('Bonneblad')));
 });

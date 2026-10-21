@@ -12,7 +12,7 @@ const CE = 'https://linkeddata cultureelerfgoed nl/def/ceo-elastic#';
 const GEO = 'http://www opengis net/ont/geosparql#asWKT';
 
 const OBJECTEN = [
-  'rijksmonument/59284', 'rijksmonument/74775', 'rijksmonument/33398', 'rijksmonument/18717',
+  'rijksmonument/59284', 'rijksmonument/74775', 'rijksmonument/33398', 'rijksmonument/18717', 'rijksmonument/32455', 'rijksmonument/65329',
   'complex/62476', 'gezicht/10134173', 'werelderfgoed/10134675', 'archeologischterrein/10123020',
   'archeologischonderzoeksgebied/2020275', 'vondstlocatie/10032284', 'archeologischcomplex/10000011',
   'grondsporen/10000026', 'vondsten/10000096',
@@ -137,8 +137,35 @@ await zoek('sorteren op monumentnummer als getal (.getal)', {
   query: { term: { '@id.soort': 'rijksmonument' } }, sort: [{ [CE + 'rijksmonumentnummer.getal']: 'asc' }],
 }, [], j => {
   const n = j.hits.hits.map(h => Number(h._source[CE + 'rijksmonumentnummer'][0]));
-  return n.length === 4 && n.every((v, i) => i === 0 || n[i - 1] <= v);
+  return n.length === 6 && n.every((v, i) => i === 0 || n[i - 1] <= v);
 });
+
+// "P.J.H.Cuypers" zonder spatie: de standard tokenizer maakt daar één woord van, tenzij punt_tussen_letters het splitst.
+for (const analyzer of ['nl_index', 'nl_zoeken', 'nl_exact']) {
+  const r = await es('POST', '/index/_analyze', { analyzer, text: 'door P.J.H.Cuypers, St.Jan' });
+  const tokens = (r.json.tokens ?? []).map(t => t.token);
+  ok(tokens.some(t => t.startsWith('cuyper')) && tokens.includes('jan') && !tokens.some(t => t.includes('.')), `${analyzer}: "P.J.H.Cuypers, St.Jan" -> ${tokens.join(' ')}`);
+}
+await zoek('cuypers AND station vindt Centraal Station Amsterdam ("P.J.H.Cuypers" in de omschrijving)', {
+  query: { query_string: { query: '(cuijpers OR cuypers) AND station', fields: [CE + 'omschrijving', CE + 'naam'] } },
+}, ['rijksmonument/32455']);
+
+// Functie en type: .keyword zonder de code van de oude functie-indeling (normalizer zonder_functiecode).
+for (const [tekst, verwacht] of [['Woonhuis(K)', 'Woonhuis'], ['Boerderij (M1)', 'Boerderij'], ['Kazemat (B10)', 'Kazemat'], ['Lunet(te)', 'Lunet(te)'], ['aardewerk:onbepaald (ROM)', 'aardewerk:onbepaald (ROM)']]) {
+  const r = await es('POST', '/index/_analyze', { normalizer: 'zonder_functiecode', text: tekst });
+  ok(r.json.tokens?.[0]?.token === verwacht, `zonder_functiecode: "${tekst}" -> ${r.json.tokens?.[0]?.token ?? JSON.stringify(r.json.error?.reason)}`);
+}
+await zoek('facet functie zonder code (.keyword)', {
+  size: 0, aggs: { f: { terms: { field: CE + 'functie.keyword', size: 50 } }, t: { terms: { field: CE + 'type.keyword', size: 50 } } },
+}, [], j => {
+  const keys = [...j.aggregations.f.buckets, ...j.aggregations.t.buckets].map(b => b.key);
+  console.log('      functie/type:', keys.join(' | '));
+  return keys.includes('Boerderij') && !keys.some(k => /\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\)\s*$/.test(k));
+});
+
+await zoek('filter op functie "Boerderij" vindt "Boerderij (M)" (RM 65329)', {
+  query: { term: { [CE + 'functie.keyword']: 'Boerderij' } },
+}, ['rijksmonument/65329']);
 
 await zoek('facet gemeente (.keyword)', {
   size: 0, aggs: { g: { terms: { field: CE + 'gemeente.keyword' } } },

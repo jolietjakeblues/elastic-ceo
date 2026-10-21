@@ -7,9 +7,12 @@ Stand van 21 oktober 2026.
 - **Volledige run:** 7 query-jobs, één per klasse ([`construct/delen/`](../construct/delen/), zie [schema.md](schema.md#in-7-queries-één-per-klasse)), samen ongeveer 3 uur. De resultaten staan in `rce/erfgoed`: 23.847.404 statements in 7 graphs. Eén job met de hele query (`rce/alles-ceo-elastic/2`) was te traag: na ongeveer 4 uur stond die op 5%.
 - **Index template zonder scripts:** de eerste versie met `condition`-filters gaf bij TriplyDB *cannot execute scripts using [analysis] context*. De huidige [`triply/elastic-service.json`](../triply/elastic-service.json) gebruikt alleen standaardfilters en is lokaal getest (zie [taalanalyse.md](taalanalyse.md) en [elastic-document.md](elastic-document.md#lokaal-testen)).
 - **Service aangemaakt:** `Erfgoed-ceo` op `rce/erfgoed` (21 oktober), status *running*, 1.209.366 documenten. De commando's staan in de README, onder *Service aanmaken en controleren*.
+- **Workers Builds:** gekoppeld (21 oktober); elke push naar `main` zet de website online.
 - **Zoekwebsite:** online op <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/> (zie [website.md](website.md)).
 
 ## Te doen
+
+0. **Service opnieuw aanmaken** voor twee wijzigingen in de template (21 oktober, zie [taalanalyse.md](taalanalyse.md)): de tekenfilter `punt_tussen_letters` (zonder die filter vindt *cuypers* niet "P.J.H.Cuypers", Centraal Station Amsterdam) en de normalizer `zonder_functiecode` (de facet functie zonder "(K)", "(M1)" enz.). De 7 query-jobs hoeven niet opnieuw: de data in `rce/erfgoed` blijft gelijk, alleen de index wordt opnieuw opgebouwd. `triply/elastic-service.json` is bijgewerkt en lokaal getest; verwijder `Erfgoed-ceo` en maak hem opnieuw aan (README, *Service aanmaken en controleren*). `npm run test:live` controleert het daarna. Dezelfde reparatie is nodig in de SDO-demo (elastic-erfgoed): `Erfgoed-sdo-nl4` (en nl3) geeft live ook 25 objecten voor `p.j.h.cuypers`.
 
 1. **Controles** als de service op *running* staat:
    - Het aantal documenten per soort is gelijk aan de tabel in [cho-data.md](cho-data.md).
@@ -18,16 +21,16 @@ Stand van 21 oktober 2026.
    - Een steekproef met `tests/elastic-document.mjs` komt overeen met het document in Elastic.
 
    Gaat de service op *Error*, dan staat de melding op de servicekaart.
-2. **Workers Builds koppelen.** De Worker `erfgoed-cho-zoekdemo` is met de hand gepubliceerd. Zodra de repository op GitHub staat, koppel je hem in het Cloudflare-dashboard, zodat elke push naar `main` automatisch online komt (zie [website.md](website.md#online-zetten)).
-3. **Thumbnails.** De website staat online (<https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/>). De thumbnails uit de beeldbank vallen nu weg, omdat `images.memorix.nl` tijdelijk offline is. Opnieuw bekijken als de beeldbank weer online is.
-4. **Naam en toegang van de dataset.** Hij heet nu `rce/erfgoed` (*public*), met de beschrijving "Volledige CHO-KENNIS voor Elastic test". Voorstel:
+2. **Thumbnails.** De website staat online (<https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/>). De thumbnails uit de beeldbank vallen nu weg, omdat `images.memorix.nl` tijdelijk offline is. Opnieuw bekijken als de beeldbank weer online is.
+3. **Naam en toegang van de dataset.** Hij heet nu `rce/erfgoed` (*public*), met de beschrijving "Volledige CHO-KENNIS voor Elastic test". Voorstel:
    - de naam `erfgoed-ceo`, naast `erfgoed-sdo`;
    - *internal* zolang het een experiment is;
    - de beschrijving uit [`triply/dataset-beschrijving.md`](../triply/dataset-beschrijving.md).
 
    Krijgt de dataset een nieuwe naam, dan veranderen de URL van het zoekendpoint en de commando's in de README.
-5. **Verversen.** `rce/cho` wordt dagelijks herladen. Bepalen hoe vaak de projectie opnieuw draait (eerst de graphs leegmaken, dan de 7 jobs) en hoe de Elastic-service daarna bijgewerkt wordt.
-6. **Taalanalyse bijhouden.** De lijsten voor terp, graf en paal liggen vast. Komt er een nieuwe samenstelling in de data, dan moet die erbij (zie [taalanalyse.md](taalanalyse.md)). Er kunnen ook regels bij als de voorkant er is en blijkt waarop mensen zoeken.
+4. **Verversen.** `rce/cho` wordt dagelijks herladen. Bepalen hoe vaak de projectie opnieuw draait (eerst de graphs leegmaken, dan de 7 jobs) en hoe de Elastic-service daarna bijgewerkt wordt.
+5. **Taalanalyse bijhouden.** De lijsten voor terp, graf en paal liggen vast. Komt er een nieuwe samenstelling in de data, dan moet die erbij (zie [taalanalyse.md](taalanalyse.md)). Er kunnen ook regels bij als de voorkant er is en blijkt waarop mensen zoeken.
+6. **Oude kaarten verversen.** `web/oude-kaarten.json` is gemaakt op 21 oktober 2026. Er komen in Allmaps steeds kaarten bij; draai af en toe `node allmaps/maak-oude-kaarten.mjs`. De lijst met collecties (`COLLECTIES`, `HOSTS`) is dezelfde als in Dodenakkers en Joodse begraafplaatsen; houd die gelijk.
 7. **Wijzigingen in elastic-erfgoed overnemen.** `triply/nl-analyse.json` is gebaseerd op een kopie. Verandert de analyse in elastic-erfgoed (bijvoorbeeld synoniemen uit de CHT-thesaurus), neem dat dan hier met de hand over. Draai daarna `node triply/maak-service.mjs`, `node tests/lokaal-elastic.mjs` en `node tests/vergelijk-analyse.mjs` opnieuw.
 
 ## Te beslissen of af te stemmen

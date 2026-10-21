@@ -98,6 +98,13 @@ article details { margin-top: 10px; font-size: .9rem; } .description { white-spa
 /* Ruimte onder de kaart voor legenda en telling, zodat die in beeld blijven naast de (meescrollende) kaart. */
 #map { height: calc(100vh - 290px); min-height: 360px; border: 1px solid var(--grijs-3); background: var(--grijs-1); }
 #map-info { margin-top: 8px; }
+/* Oude kaarten (Allmaps): paneel rechtsboven in de kaart. */
+.oude-kaart { width: min(320px, calc(100vw - 80px)); padding: 8px 10px; background: #fff; border: 1px solid var(--grijs-3); box-shadow: 0 1px 4px rgba(0,0,0,.25); font: .85rem/1.4 "RO Sans", Calibri, Verdana, sans-serif; color: #000; }
+.oude-kaart p { margin: 0 0 6px; } .oude-kaart .hint { font-size: .8rem; }
+.oude-kaart-kop { display: flex; gap: 6px; align-items: baseline; } .oude-kaart-kop strong { white-space: nowrap; }
+.oude-kaart-sluit { margin-left: auto; padding: 0 8px; line-height: 1.4; }
+.oude-kaart select { width: 100%; margin-bottom: 6px; padding: 4px; }
+.oude-kaart label { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; } .oude-kaart input[type=range] { flex: 1; }
 .label-marker span { position: absolute; transform: translate(-50%, calc(-100% - 6px)); padding: 1px 6px; background: var(--blauw); color: #fff; font: 700 12px/1.4 "RO Sans", Calibri, Verdana, sans-serif; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .label-marker span::after { content: ''; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: var(--blauw); }
 .label-marker span.selected { background: var(--geel); color: #000; z-index: 1; } .label-marker span.selected::after { border-top-color: var(--geel); }
@@ -189,11 +196,22 @@ article.selected { box-shadow: inset 4px 0 0 var(--geel); }
 [data-soort=archeologischonderzoeksgebied] { --kleur: var(--archeologischonderzoeksgebied); } [data-soort=vondstlocatie] { --kleur: var(--vondstlocatie); }
 [data-soort=archeologischcomplex] { --kleur: var(--archeologischcomplex); } [data-soort=grondsporen] { --kleur: var(--grondsporen); }
 [data-soort=vondsten] { --kleur: var(--vondsten); }
+/* Datering, zoals in de archeologiedemo: Van en tot op één regel, met de keuze deels/helemaal. */
 .search-panel .jaar-input { grid-column: 1/-1; }
-.jaar-input .label { display: block; font-weight: 700; margin-bottom: 4px; }
-.jaar-row { display: flex; align-items: center; gap: 10px; max-width: 520px; } .jaar-row input { flex: 1; }
+.jaar-input { border: 0; margin: 0; padding: 0; min-width: 0; }
+.jaar-input legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+.jaar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jaar-row label { margin: 0; font-weight: 400; }
+.jaar-row input { width: 9rem; } .jaar-row select { width: auto; flex: 1 1 16rem; }
 .jaar-input .hint { margin: 4px 0 0; }
+@media (max-width: 760px) {
+  .jaar-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); }
+  .jaar-row input { width: 100%; }
+  .jaar-row select { grid-column: 1/-1; width: 100%; }
+}
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .thumb { float: right; width: 160px; max-width: 40%; height: auto; margin: 0 0 8px 16px; border: 1px solid var(--grijs-3); }
 article::after { content: ''; display: block; clear: both; }
 @media (max-width: 760px) { .thumb { float: none; display: block; width: 100%; max-width: 320px; margin: 8px 0; } }
+/* Koppen in de zoekhulp niet onder de vaste kop "Zoekhulp" laten verdwijnen bij een link ernaartoe. */
+dialog h3 { scroll-margin-top: 72px; }

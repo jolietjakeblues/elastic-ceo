@@ -21,7 +21,7 @@ const VRAGEN = [
   ['archeologie', 'graf'], ['archeologie', 'graven'], ['archeologie', 'crematiegraven'], ['archeologie', 'urnenvelden'],
   ['archeologie', 'hunebed'], ['archeologie', 'aardewerk'], ['archeologie', 'keramiek'], ['archeologie', 'haard'],
   ['archeologie', 'schrabber'], ['archeologie', 'scherven'], ['archeologie', 'waterput'], ['archeologie', 'kom'], ['archeologie', 'grape'], ['archeologie', 'onbepaald'],
-  ['monument', 'kapel'], ['monument', 'kapellen'], ['monument', 'dakkapel'], ['monument', 'kerk'],
+  ['monument', 'cuypers'], ['monument', 'kapel'], ['monument', 'kapellen'], ['monument', 'dakkapel'], ['monument', 'kerk'],
   ['monument', 'molen'], ['monument', 'toren'], ['monument', 'kasteel'], ['monument', 'fort'],
   ['monument', 'grafmonument'], ['monument', 'waterpomp'], ['monument', 'boerderij'], ['monument', 'woning'],
   ['monument', 'Lekkerkerk'], ['monument', 'Kerkstraat'], ['monument', 'dijk'],

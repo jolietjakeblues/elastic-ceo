@@ -24,12 +24,12 @@
   <a class="skip" href="#query">Direct naar zoeken</a>
   <header class="site-header">
     <div class="brand"><p><strong>Erfgoed CHO-zoekdemo</strong><br>Technische demonstrator op open data van de RCE</p></div>
-    <nav class="bar" aria-label="Kruimelpad"><div class="wrap"><ol class="crumbs"><li>Demo</li><li aria-current="page">Erfgoed en archeologie zoeken</li></ol></div></nav>
+    <nav class="bar" aria-label="Kruimelpad"><div class="wrap"><ol class="crumbs"><li>Demo</li><li aria-current="page">Monumenten en archeologie zoeken</li></ol></div></nav>
   </header>
   <main>
   <div class="search-band"><div class="wrap">
     <h1>Zoeken in monumenten en archeologie</h1>
-    <p class="intro">Ruim 1,2 miljoen objecten uit de CHO-dataset van de RCE in één index: rijksmonumenten, complexen, gezichten, werelderfgoed, archeologische terreinen, onderzoeksgebieden, vondstlocaties, archeologische complexen, grondsporen en vondsten. Zoek, filter op soort, plaats, type, materiaal en periode, en bekijk wat ergens in ligt.</p>
+    <p class="intro">Ruim 1,2 miljoen objecten uit de CHO-dataset van de RCE in één index: rijksmonumenten, complexen, gezichten, werelderfgoed, archeologische terreinen, onderzoeksgebieden, vondstlocaties, archeologische complexen, grondsporen en vondsten. Zoek, filter op soort, plaats, type, materiaal en periode, en bekijk wat ergens in ligt. <button type="button" class="link-button" data-help="anders">Wat kan deze demo meer dan de SDO-demo's?</button></p>
     <form id="search-form" class="search-panel">
       <div class="query-input"><label for="query">Jouw zoekvraag</label><input id="query" name="query" type="search" maxlength="500" placeholder="Bijvoorbeeld: molen, terp of kasteel AND gracht" aria-describedby="syntax"></div>
       <div><label for="field">Zoek in</label><select id="field" name="field"></select></div>
@@ -37,9 +37,11 @@
       <div class="binnen-input"><label for="binnen">Binnen gezicht of werelderfgoed <span class="optional">(optioneel)</span></label>
         <div class="binnen-row"><input id="binnen" type="search" list="gebieden-lijst" autocomplete="off" placeholder="Typ een naam, bijvoorbeeld Orvelte of Kinderdijk" aria-describedby="binnen-hint"><datalist id="gebieden-lijst"></datalist></div>
         <p id="binnen-hint" class="hint">Kies een gezicht of werelderfgoed (kern- of bufferzone); Elasticsearch zoekt dan ruimtelijk binnen het vlak. Bij een resultaat staan ook de knoppen <strong>Toon wat erin ligt</strong>, <strong>Toon onderdelen</strong> en <strong>In de buurt</strong>.</p></div>
-      <div class="jaar-input"><span class="label" id="jaar-label">Datering <span class="optional">(optioneel)</span></span>
-        <div class="jaar-row" role="group" aria-labelledby="jaar-label"><label for="jaar-van" class="sr-only">Vanaf jaar</label><input id="jaar-van" inputmode="numeric" placeholder="vanaf, bijv. -12" aria-describedby="jaar-hint"><span aria-hidden="true">tot</span><label for="jaar-tot" class="sr-only">Tot jaar</label><input id="jaar-tot" inputmode="numeric" placeholder="tot, bijv. 450" aria-describedby="jaar-hint"></div>
-        <p id="jaar-hint" class="hint">Objecten waarvan de datering (begin- tot eindjaar) overlapt met deze jaren. Jaren voor Christus met een min: -500, of 500 v.Chr.</p></div>
+      <fieldset class="jaar-input" aria-describedby="jaar-hint"><legend>Datering <span class="optional">(optioneel)</span></legend>
+        <div class="jaar-row"><label for="jaar-van">Van</label><input id="jaar-van" inputmode="numeric" placeholder="bijv. -500">
+          <label for="jaar-tot">tot</label><input id="jaar-tot" inputmode="numeric" placeholder="bijv. 1600">
+          <label for="jaarmodus" class="sr-only">Hoe</label><select id="jaarmodus"><option value="overlapt">datering valt er (deels) in</option><option value="binnen">datering valt er helemaal in</option></select></div>
+        <p id="jaar-hint" class="hint">Negatief is vóór Christus: <strong>-500 tot 500</strong> is 500 v.Chr. tot 500 n.Chr. (ook “500 v.Chr.” mag). Archeologie: jaren van de ABR-periode; monumenten: jaren van bouw, verbouwing en restauratie. Brede dateringen (bijv. Prehistorie – Nieuwe Tijd) vallen bijna altijd <em>deels</em> in een periode; kies <em>helemaal</em> voor alleen nauw gedateerde objecten.</p></fieldset>
       <p id="syntax" class="hint">Combineer met AND, OR, NOT (in hoofdletters) en haakjes. Gebruik quotes voor een exacte woordcombinatie. <button type="button" id="help-open" class="link-button">Zoekhulp en meer voorbeelden</button></p>
       <p id="query-tip" class="tip" hidden></p>
       <div class="examples"><span>Probeer:</span>
@@ -77,6 +79,21 @@
   <dialog id="help" aria-labelledby="help-title">
     <div class="help-head"><h2 id="help-title">Zoekhulp</h2><button type="button" id="help-close" aria-label="Sluit zoekhulp">×</button></div>
     <p>De zoekbalk gebruikt de Elasticsearch <code>query_string</code>-syntax. Klik op een voorbeeld om het meteen te proberen. Er wordt gezocht in het veld dat bij <strong>Zoek in</strong> staat.</p>
+    <h3 id="help-anders">Wat kan deze demo meer dan de SDO-demo's?</h3>
+    <p>De <a href="https://erfgoed-sdo-elastic-demo.jolietjakeblues64.workers.dev/" target="_blank" rel="noopener noreferrer">Erfgoed SDO/Elastic demo</a> en de <a href="https://elastic-archeologie.jolietjakeblues64.workers.dev/" target="_blank" rel="noopener noreferrer">Archeologie SDO/Elastic demo</a> zoeken in een vertaling van CHO naar schema.org. Deze demo zoekt in een projectie van CHO die de termen van de Cultureel Erfgoed Ontologie houdt. Wat dat oplevert:</p>
+    <table>
+      <thead><tr><th>Wat</th><th>Hier</th><th>In de SDO-demo's</th></tr></thead>
+      <tbody>
+        <tr><td>Monumenten en archeologie</td><td>samen in één index: 10 soorten, ruim 1,2 miljoen objecten. Eén zoekvraag, één set facetten en één kaart voor alles.</td><td>twee aparte demo's; een archeologisch terrein linkt van de ene naar de andere</td></tr>
+        <tr><td>Welke monumenten en gebieden</td><td>ook voormalige rijksmonumenten, niet-beschermde gezichten en de bufferzones van werelderfgoed. Het filter <strong>Juridische status</strong> laat zien wat wat is.</td><td>alleen huidige rijksmonumenten, beschermde gezichten en kernzones</td></tr>
+        <tr><td>Gegevens bij een monument</td><td>naast adres, type en omschrijving ook juridische status, hoofdfunctie, oorspronkelijke en huidige functie, stijl, maker en rol (bijv. <button type="button" data-example="Cuypers" data-veld="Maker" data-sorteer="oudste">Cuypers</button>), bouwkundige staat, inschrijvingsdatum, kadaster en een foto uit de beeldbank</td><td>naam, adres, plaats, type, categorie en omschrijving</td></tr>
+        <tr><td>Datering van monumenten</td><td>als jaartal, in hetzelfde veld als bij archeologie: filter op periode, sorteer op oudste of jongste</td><td>geen datering bij monumenten</td></tr>
+        <tr><td>Relaties tussen monument en archeologie</td><td>in één index te volgen: rijksmonument → archeologisch terrein → archeologisch complex, en terug</td><td>verdeeld over de twee demo's</td></tr>
+        <tr><td>Taal</td><td><button type="button" data-example="terp">terp</button> vindt geen waterput meer en <button type="button" data-example="kapel">kapel</button> geen dakkapel. Verder <button type="button" data-example="paalgaten">paalgaten</button> = paalgat, <button type="button" data-example="graf">graf</button> vindt crematiegraf, <button type="button" data-example="keramiek">keramiek</button> vindt aardewerk en <button type="button" data-example="hunebed">hunebed</button> vindt megalietgraf.</td><td>in de Erfgoed SDO-demo vindt terp ook waterput en kapel ook dakkapel</td></tr>
+        <tr><td>Oude kaarten</td><td>bij elk resultaat met een locatie: gegeorefereerde historische kaarten uit <a href="https://allmaps.org/" target="_blank" rel="noopener noreferrer">Allmaps</a> over de moderne kaart, zoals Bonnebladen en de Waterstaatskaart (zie <button type="button" class="link-button" data-help="oude-kaarten">Oude kaarten</button>)</td><td>alleen de moderne kaart</td></tr>
+      </tbody>
+    </table>
+    <p>Gelijk gebleven zijn onder meer de zoeksyntax, de facetten, ruimtelijk zoeken binnen een gebied of in de buurt, en de link naar het volledige object in CHO. Wat de SDO-demo's wel hebben: schema.org is een standaardvocabulaire die ook buiten de RCE begrepen wordt, en de Erfgoed SDO-demo telt per gezicht of werelderfgoed hoeveel resultaten erin liggen.</p>
     <h3>Wat zit er in de index?</h3>
     <table>
       <thead><tr><th>Soort</th><th>Aantal</th><th>Wat en waar</th></tr></thead>
@@ -103,7 +120,11 @@
       <li>Wil je dat niet, kies dan bij <strong>Zoek in</strong> de optie <strong>Exact</strong>.</li>
     </ul>
     <h3>Datering</h3>
-    <p>Met <strong>Datering</strong> vind je objecten waarvan de periode overlapt met de jaren die je invult. Bij archeologie zijn dat de jaren van de ABR-periode (bijv. Romeinse Tijd: 12 v.Chr. tot 450), bij monumenten de jaren van bouw, verbouwing of restauratie. Een monument met meerdere gebeurtenissen telt mee als één ervan overlapt. Voorbeeld: <button type="button" data-example="aardewerk" data-van="-12" data-tot="450" data-soort="vondsten">Romeins aardewerk</button>.</p>
+    <p>Met <strong>Datering</strong> vind je objecten op hun jaartallen. Bij archeologie zijn dat de jaren van de ABR-periode (bijv. Romeinse Tijd: 12 v.Chr. tot 450), bij monumenten de jaren van bouw, verbouwing of restauratie.</p>
+    <ul>
+      <li><strong>datering valt er (deels) in</strong>: de periode van het object overlapt met de jaren die je invult. Een monument met meerdere gebeurtenissen telt mee als één ervan overlapt. Voorbeeld: <button type="button" data-example="aardewerk" data-van="-12" data-tot="450" data-soort="vondsten">Romeins aardewerk</button>.</li>
+      <li><strong>datering valt er helemaal in</strong>: de hele periode van het object ligt binnen jouw jaren, bij een monument alle gebeurtenissen. Zo vallen brede dateringen (bijv. Prehistorie – Nieuwe Tijd) weg. Voorbeeld: <button type="button" data-example="aardewerk" data-van="-12" data-tot="450" data-jaarmodus="binnen" data-soort="vondsten">alleen Romeins gedateerd aardewerk</button>.</li>
+    </ul>
     <h3 id="help-volgorde">Volgorde: hoe bepaalt de demo wat bovenaan staat?</h3>
     <p>Bij sorteren op <strong>Relevantie</strong> geeft Elasticsearch elk resultaat een score (het BM25-model). De score is hoger als het zoekwoord zeldzaam is in de hele index, vaker in het veld voorkomt, in een kort veld staat, of in een veld met gewicht. Naam, locatienaam, type en functie tellen 3× zo zwaar (<code>^3</code>). De weging verandert <strong>alleen de volgorde</strong>, niet welke en hoeveel objecten je vindt. Kies je bij <strong>Sorteer op</strong> iets anders dan relevantie, dan speelt de score geen rol.</p>
     <h3>Combineren</h3>
@@ -125,6 +146,14 @@
       <li><strong>Toon wat erin ligt</strong> (bij een rijksmonument, terrein, onderzoeksgebied of vondstlocatie): alles wat erin ligt, op alle niveaus. Bij een onderzoeksgebied zijn dat de vondstlocaties en alle complexen, grondsporen en vondsten daarin.</li>
       <li><strong>Toon onderdelen</strong> (bij een complex): de rijksmonumenten van het complex.</li>
       <li><strong>In de buurt</strong>: alles binnen 500 m; de afstand is daarna aan te passen (100 m tot 2 km).</li>
+    </ul>
+    <h3 id="help-oude-kaarten">Oude kaarten</h3>
+    <p>Klik bij een resultaat op <strong>Oude kaarten</strong>. De kaart zoomt naar het object en legt er een historische kaart overheen; kies een andere kaart in de lijst en schuif met <strong>Dekking</strong> tussen toen en nu. Probeer het bij <button type="button" data-example="Bergkerk" data-soort="rijksmonument">de Bergkerk in Deventer</button> (17 kaarten, van 1843 tot 1933).</p>
+    <ul>
+      <li>De kaarten komen uit <a href="https://allmaps.org/" target="_blank" rel="noopener noreferrer">Allmaps</a>: gescande kaarten die vrijwilligers en instellingen op de juiste plek hebben gelegd (georeferentie, CC0). Het kaartbeeld blijft bij de collectie, bijvoorbeeld TU Delft Library, de Universiteitsbibliotheek Utrecht of het Nationaal Archief, en komt via de Allmaps Tile Server.</li>
+      <li>Alleen detailkaarten (kleiner dan 600 km²) van bekende collecties, met een herkenbare titel: ruim 5.000 kaarten. Als er een Bonneblad is (1:25.000, 1865–1949), wordt dat eerst getoond; de lijst staat op jaar, oudste eerst.</li>
+      <li>Een kaart kan enkele tientallen meters verschoven liggen. Klik op <strong>hele kaart in Allmaps</strong> voor de hele scan.</li>
+      <li>Archeologische complexen, grondsporen en vondsten hebben geen locatie en dus geen oude kaarten.</li>
     </ul>
     <h3>Goed om te weten</h3>
     <ul>

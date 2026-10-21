@@ -99,6 +99,7 @@
     "nl_index": {
       "type": "custom",
       "char_filter": [
+        "punt_tussen_letters",
         "dubbele_punt",
         "geen_dakkapel",
         "geen_kapelaan",
@@ -118,6 +119,7 @@
     "nl_zoeken": {
       "type": "custom",
       "char_filter": [
+        "punt_tussen_letters",
         "dubbele_punt",
         "geen_dakkapel",
         "geen_kapelaan",
@@ -136,6 +138,7 @@
     "nl_exact": {
       "type": "custom",
       "char_filter": [
+        "punt_tussen_letters",
         "dubbele_punt"
       ],
       "tokenizer": "standard",
@@ -146,6 +149,11 @@
     }
   },
   "char_filter": {
+    "punt_tussen_letters": {
+      "type": "pattern_replace",
+      "pattern": "(?<=\\p{L})\\.(?=\\p{L})",
+      "replacement": " "
+    },
     "dubbele_punt": {
       "type": "pattern_replace",
       "pattern": ":",
@@ -173,6 +181,11 @@
       "type": "pattern_replace",
       "pattern": "^.*/id/([a-z]+)/.*$",
       "replacement": "$1"
+    },
+    "geen_functiecode": {
+      "type": "pattern_replace",
+      "pattern": "\\s*\\((?:[A-Z]{1,2}[0-9]{0,2}|T[A-Z]{2}[0-9]?)\\)\\s*$",
+      "replacement": ""
     }
   },
   "normalizer": {
@@ -184,6 +197,13 @@
       "filter": [
         "lowercase"
       ]
+    },
+    "zonder_functiecode": {
+      "type": "custom",
+      "char_filter": [
+        "geen_functiecode"
+      ],
+      "filter": []
     }
   }
 }

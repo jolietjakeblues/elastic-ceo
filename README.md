@@ -21,7 +21,7 @@ Kort:
 | Dataset | `rce/erfgoed` (*public*): 23.847.404 statements in 7 graphs. De naam (bijvoorbeeld `erfgoed-ceo`) en de toegang zijn nog niet definitief. |
 | Index template | [triply/elastic-service.json](triply/elastic-service.json): alle velden van de query, zonder scripts, lokaal getest tegen Elasticsearch 8.17.0 |
 | Elastic-service | `Erfgoed-ceo` op `rce/erfgoed`, aangemaakt op 21 oktober, bezig met indexeren |
-| Zoekwebsite | online: <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/> ([web/](web/), zie [docs/website.md](docs/website.md)) |
+| Zoekwebsite | online: <https://erfgoed-cho-zoekdemo.jolietjakeblues64.workers.dev/> ([web/](web/), zie [docs/website.md](docs/website.md)), met oude kaarten uit Allmaps |
 
 Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 
@@ -30,6 +30,7 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | Pad | Inhoud |
 |---|---|
 | [`web/`](web/) | De zoekwebsite (HTML, CSS, JavaScript), zie [docs/website.md](docs/website.md) |
+| [`allmaps/`](allmaps/) | Script dat `web/oude-kaarten.json` maakt (oude kaarten uit Allmaps), met de jaartallen van de Bonnebladen |
 | [`server.mjs`](server.mjs), [`package.json`](package.json), [`wrangler.jsonc`](wrangler.jsonc) | Lokale server (`npm start`), testscripts en Cloudflare-instellingen voor de website |
 | [`construct/alles.rq`](construct/alles.rq) | De CONSTRUCT voor de hele projectie; hier pas je de query aan |
 | [`construct/delen/`](construct/delen/) | Dezelfde query in 7 delen, één per klasse, elk als losse query-job in TriplyDB (gemaakt uit `alles.rq`) |
@@ -53,7 +54,7 @@ Wat nog openstaat: [docs/open-punten.md](docs/open-punten.md).
 | [`tests/live.mjs`](tests/live.mjs) | Controle van de website-queries tegen de live service (`npm run test:live`) |
 | [`tests/objecten.mjs`](tests/objecten.mjs) | Draait de query voor losse objecten en toont de velden per object |
 | [`tests/elastic-document.mjs`](tests/elastic-document.mjs) | Draait de query voor losse objecten en toont het document zoals Triply het in Elastic zet |
-| [`tests/lokaal-elastic.mjs`](tests/lokaal-elastic.mjs) | Laadt de template en 13 voorbeeldobjecten in een lokale Elasticsearch (Docker) en controleert types en zoekvragen |
+| [`tests/lokaal-elastic.mjs`](tests/lokaal-elastic.mjs) | Laadt de template en 15 voorbeeldobjecten in een lokale Elasticsearch (Docker) en controleert types en zoekvragen |
 | [`tests/documenten.mjs`](tests/documenten.mjs) | Gedeelde code: query draaien en omzetten zoals Triply dat doet |
 | [`tests/corpus.mjs`](tests/corpus.mjs) | Bouwt een testcorpus van 23.490 objecten (NDJSON) voor de taalanalyse |
 | [`tests/vergelijk-analyse.mjs`](tests/vergelijk-analyse.mjs) | Vergelijkt de nl3-analyse en de nieuwe op het corpus, in een lokale Elasticsearch |

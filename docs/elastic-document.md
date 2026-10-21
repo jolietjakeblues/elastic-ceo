@@ -136,7 +136,7 @@ Elastic zet de strings bij het indexeren om naar het type uit de template.
 
 ### Lokaal testen
 
-Met [`tests/lokaal-elastic.mjs`](../tests/lokaal-elastic.mjs) laad je de templates zoals Triply ze krijgt in een lokale Elasticsearch. Het script indexeert 13 voorbeeldobjecten (alle tien soorten), omgezet zoals Triply dat doet, en controleert types en zoekvragen. Het verwijdert en maakt de index `index` in die lokale Elasticsearch opnieuw.
+Met [`tests/lokaal-elastic.mjs`](../tests/lokaal-elastic.mjs) laad je de templates zoals Triply ze krijgt in een lokale Elasticsearch. Het script indexeert 15 voorbeeldobjecten (alle tien soorten, plus het Centraal Station Amsterdam en een boerderij met functiecode), omgezet zoals Triply dat doet, en controleert types en zoekvragen. Het verwijdert en maakt de index `index` in die lokale Elasticsearch opnieuw.
 
 ```bash
 docker run -d --name ceo-elastic-test -p 127.0.0.1:9201:9200 -e discovery.type=single-node -e xpack.security.enabled=false -e ES_JAVA_OPTS="-Xms1g -Xmx1g" docker.elastic.co/elasticsearch/elasticsearch:8.17.0
