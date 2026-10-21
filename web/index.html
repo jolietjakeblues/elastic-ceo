@@ -72,6 +72,7 @@
         <p id="export-info" class="hint" aria-live="polite"></p>
         <div id="active-filters"></div><div id="results"><p class="empty">Zoek op woorden, een naam, een adres of een nummer, of kies een gebied.</p></div><nav id="pagination" aria-label="Resultaatpagina’s" hidden><button id="previous" type="button">Vorige</button><span id="page-number"></span><button id="next" type="button">Volgende</button></nav></section>
       <section id="map-panel" aria-labelledby="map-heading"><div class="results-title"><h2 id="map-heading">Kaart</h2></div><div id="map" role="region" aria-label="Kaart met zoekresultaten"></div>
+        <section id="oude-kaart" class="oude-kaart" aria-label="Oude kaarten" hidden></section>
         <ul class="legend" aria-label="Legenda"><li data-soort="rijksmonument">Rijksmonument</li><li data-soort="complex">Complex</li><li data-soort="gezicht">Gezicht</li><li data-soort="werelderfgoed">Werelderfgoed</li><li data-soort="archeologischterrein">Archeologisch terrein</li><li data-soort="archeologischonderzoeksgebied">Onderzoeksgebied</li><li data-soort="vondstlocatie">Vondstlocatie</li><li data-soort="binnen">Gekozen gebied, object of afstand</li></ul>
         <p id="map-info" class="hint">Na het zoeken verschijnen de resultaten van deze pagina met een locatie op de kaart.</p></section>
     </div>
@@ -148,13 +149,13 @@
       <li><strong>In de buurt</strong>: alles binnen 500 m; de afstand is daarna aan te passen (100 m tot 2 km).</li>
     </ul>
     <h3 id="help-oude-kaarten">Oude kaarten</h3>
-    <p>Klik bij een resultaat op <strong>Oude kaarten</strong>. De kaart zoomt naar het object en legt er een historische kaart overheen; klik op een andere kaart in de lijst en schuif met <strong>Dekking</strong> tussen toen en nu. Probeer het bij <button type="button" data-example="Bergkerk" data-soort="rijksmonument">de Bergkerk in Deventer</button> (17 kaarten, van 1843 tot 1933).</p>
+    <p>Klik bij een resultaat op <strong>Oude kaarten</strong>. De kaart zoomt naar het object en legt er een historische kaart overheen; onder de kaart verschijnt de lijst. Klik op een andere kaart in de lijst en schuif met <strong>Dekking</strong> tussen toen en nu. Probeer het bij <button type="button" data-example="Bergkerk" data-soort="rijksmonument">de Bergkerk in Deventer</button> (17 kaarten, van 1843 tot 1933).</p>
     <ul>
       <li>De kaarten komen uit <a href="https://allmaps.org/" target="_blank" rel="noopener noreferrer">Allmaps</a>: gescande kaarten die vrijwilligers en instellingen op de juiste plek hebben gelegd (georeferentie, CC0). Het kaartbeeld blijft bij de collectie, bijvoorbeeld TU Delft Library, de Universiteitsbibliotheek Utrecht of het Nationaal Archief, en komt via de Allmaps Tile Server.</li>
       <li>Alleen detailkaarten (kleiner dan 600 km²) van bekende collecties, met een herkenbare titel: ruim 5.000 kaarten. Als er een Bonneblad is (1:25.000, 1865–1949), wordt dat eerst getoond; de lijst staat op jaar, oudste eerst.</li>
       <li>Een kaart kan enkele tientallen meters verschoven liggen. Klik op <strong>hele kaart in Allmaps</strong> voor de hele scan.</li>
       <li>Onder de lijst staan de <strong>kadastrale minuutplans</strong> (1811–1832) op die plek, met een link naar de scan in de <a href="https://beeldbank.cultureelerfgoed.nl/" target="_blank" rel="noopener noreferrer">beeldbank van de RCE</a>. Die liggen niet over de kaart.</li>
-      <li>Is de scan bij de collectie even niet bereikbaar, dan staat dat in het paneel en is de kaart in de lijst doorgestreept. Kies dan een andere kaart.</li>
+      <li>Kaarten waarvan de scan bij de collectie nu niet bereikbaar is, staan apart onder <strong>nu niet bereikbaar</strong>.</li>
       <li>Archeologische complexen, grondsporen en vondsten hebben geen locatie en dus geen oude kaarten.</li>
     </ul>
     <h3>Goed om te weten</h3>
