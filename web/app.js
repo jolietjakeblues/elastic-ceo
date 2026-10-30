@@ -214,6 +214,66 @@ async function loadLigtIn(hits, signal) {
     })));
   }
 }
+// Kruislink naar BoneInfo (archeozoölogische clusters, aparte dataset/service
+// op archeozoologie/boneinfo-elastic): een vondstlocatie met hetzelfde
+// archis2-waarnemings- of meldingsnummer als een BoneInfo-cluster krijgt een
+// link naar dat cluster. Opzoeking op zoeknummer, geen owl:sameAs-koppeling
+// in de brondata — een match is een sterke aanwijzing, geen garantie dat het
+// exact hetzelfde object is.
+const BONEINFO_ENDPOINT = 'https://api.linkeddata.cultureelerfgoed.nl/datasets/archeozoologie/boneinfo-elastic/services/Boneinfo/_search';
+const BONEINFO_SITE = 'https://boneinfo-zoeksite.jolietjakeblues64.workers.dev/';
+const BE = 'https://linkeddata cultureelerfgoed nl/def/boneinfo-elastic#';
+async function loadBoneInfo(hits, signal) {
+  const targets = hits
+    .filter(hit => soortVan(hit._source?.['@id']) === 'vondstlocatie')
+    .map(hit => ({
+      id: hit._id,
+      waarneming: values(hit._source[fields.archis2Waarnemingsnummer])[0],
+      melding: values(hit._source[fields.archis2Vondstmeldingsnummer])[0],
+    }))
+    .filter(t => t.waarneming || t.melding);
+  if (!targets.length) return;
+  const waarnemingen = [...new Set(targets.map(t => t.waarneming).filter(Boolean))];
+  const meldingen = [...new Set(targets.map(t => t.melding).filter(Boolean))];
+  const should = [];
+  if (waarnemingen.length) should.push({ terms: { [`${BE}waarnemingsnummer.keyword`]: waarnemingen } });
+  if (meldingen.length) should.push({ terms: { [`${BE}vondstmeldingsnummer.keyword`]: meldingen } });
+  let data;
+  try {
+    const res = await fetch(BONEINFO_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      signal,
+      body: JSON.stringify({ size: 50, query: { bool: { should, minimum_should_match: 1 } } }),
+    });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (error) {
+    if (error.name !== 'AbortError') console.error('BoneInfo', error);
+    return;
+  }
+  const one = (source, field) => (Array.isArray(source[field]) ? source[field][0] : source[field]);
+  const many = (source, field) => (Array.isArray(source[field]) ? source[field] : source[field] != null ? [source[field]] : []);
+  const docs = data.hits.hits.map(h => ({
+    zoonr: one(h._source, `${BE}zoonr`),
+    waarneming: one(h._source, `${BE}waarnemingsnummer`),
+    melding: one(h._source, `${BE}vondstmeldingsnummer`),
+    soorten: many(h._source, `${BE}diersoort`),
+  }));
+  for (const target of targets) {
+    const matches = docs.filter(d => (target.waarneming && d.waarneming === target.waarneming) || (target.melding && d.melding === target.melding));
+    if (!matches.length) continue;
+    const entry = relationSlots.get(target.id);
+    if (!entry) continue;
+    const soortenSet = [...new Set(matches.flatMap(m => m.soorten))];
+    const tekst = soortenSet.length
+      ? `${plural(soortenSet.length, 'diersoort', 'diersoorten')}: ${soortenSet.slice(0, 6).join(', ')}${soortenSet.length > 6 ? ', …' : ''} `
+      : '';
+    const links = matches.map(m => link(`BoneInfo cluster ${m.zoonr}`, `${BONEINFO_SITE}?cluster=${m.zoonr}`));
+    entry.slot.append(relationRow('Archeozoölogie (BoneInfo):', [document.createTextNode(tekst), ...links]));
+  }
+}
 function markerIcon(number, soort, selected) {
   // Alleen het nummer als label, als tekst (geen HTML uit de bron).
   const label = el('span', number, selected ? 'selected' : null);
@@ -550,7 +610,7 @@ async function run(urlMode = 'push') {
     await gebiedenLoaded;
     renderResults(hits); renderFilters(data.aggregations, context);
     const onMap = renderMap(hits);
-    loadRelations(hits, current.signal); loadLigtIn(hits, current.signal);
+    loadRelations(hits, current.signal); loadLigtIn(hits, current.signal); loadBoneInfo(hits, current.signal);
     $('status').textContent = `Totaal gevonden: ${exact ? '' : 'minimaal '}${format(total)} | Getoond: ${hits.length}${map ? ` | Op kaart: ${onMap}` : ''}`;
     $('page-info').textContent = hits.length ? `${format(state.page * PAGE_SIZE + 1)} tot ${format(state.page * PAGE_SIZE + hits.length)}` : '';
     $('pagination').hidden = total <= PAGE_SIZE;
