@@ -190,10 +190,10 @@ test('Oude kaarten: volgnummer alleen bij dezelfde titel en hetzelfde jaar; proe
 
 // RADAR (archeobotanie): kruislink op waarnemingsnummer, zie web/radar.js
 const radarDoc = (nummer, extra = {}) => ({ [`${RR}waarnemingsnummer`]: [nummer], [`${RR}siteNr`]: ['986'], [`${RR}aantalWaarnemingen`]: ['12'], [`${RR}wetenschappelijkeNaam`]: ['Hordeum vulgare', 'Avena'], [`${RR}plantnaam`]: ['Gerst', 'Haver'], ...extra });
-test('RADAR: staat uit tot de service bestaat; endpoint en veldnamen volgen de projectie', () => {
-  assert.equal(RADAR_ACTIEF, false);
+test('RADAR: staat aan; endpoint en veldnamen volgen de projectie', () => {
+  assert.equal(RADAR_ACTIEF, true);
   assert.match(RADAR_ENDPOINT, /\/datasets\/archeobotanie\/radar-elastic\/services\/Radar\/_search$/);
-  assert.equal(RADAR_SITE, null);
+  assert.equal(RADAR_SITE, 'https://radar.jolietjakeblues64.workers.dev/');
   assert.ok(RR.startsWith('https://linkeddata cultureelerfgoed nl/'), 'spaties in plaats van punten, zoals TriplyDB de veldnamen maakt');
 });
 test('RADAR: de query zoekt op waarnemingsnummer en slaat sites met een onzeker nummer over', () => {
@@ -233,6 +233,8 @@ test('RADAR: een groep taxa uit de bron ("a|b") staat in de tekst als "a / b"', 
 test('RADAR: een site zonder plantenwaarnemingen in de dataset geeft geen tekst (niet "0 planten")', () => {
   assert.equal(radarTekst([radarSite(radarDoc('1', { [`${RR}aantalWaarnemingen`]: [], [`${RR}wetenschappelijkeNaam`]: [], [`${RR}plantnaam`]: [] }))]), '');
 });
-test('RADAR: zonder RADAR-zoeksite geen link', () => {
-  assert.equal(radarSiteUrl('986'), null);
+test('RADAR: het sitenummer wordt een link naar de RADAR-zoeksite (?site=)', () => {
+  assert.equal(radarSiteUrl('986'), 'https://radar.jolietjakeblues64.workers.dev/?site=986');
+  assert.equal(radarSiteUrl(null), null);
+  assert.equal(radarSiteUrl('1/2&x'), 'https://radar.jolietjakeblues64.workers.dev/?site=1%2F2%26x', 'het nummer wordt gecodeerd');
 });

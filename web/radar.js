@@ -8,12 +8,13 @@
 // De logica staat hier, zonder DOM, zodat tests/web.test.mjs hem kan testen.
 import { values } from './search.js';
 
-// Zet op true zodra de service "Radar" op archeobotanie/radar-elastic draait; tot die tijd
-// doet de website geen verzoeken naar een endpoint dat nog niet bestaat.
+// Schakelaar: op false doet de website geen verzoeken naar RADAR (bijvoorbeeld als de service tijdelijk weg is).
+// De service "Radar" op archeobotanie/radar-elastic draait sinds 3 november 2026.
 export const RADAR_ACTIEF = true;
 export const RADAR_ENDPOINT = 'https://api.linkeddata.cultureelerfgoed.nl/datasets/archeobotanie/radar-elastic/services/Radar/_search';
-// Adres van een RADAR-zoeksite; die bestaat nog niet. Zolang dit null is, staat de sitenummer als tekst, zonder link.
-export const RADAR_SITE = null;
+// De RADAR-zoeksite (Cloudflare-worker "radar", project RADAR). Zet dit op null zolang die site niet online is:
+// dan staat het sitenummer als tekst, zonder link.
+export const RADAR_SITE = 'https://radar.jolietjakeblues64.workers.dev/';
 // Veldnamen in de zoekprojectie (construct/radar.rq in C:\AI\RADAR): property-IRI met spaties in plaats van punten.
 export const RR = 'https://linkeddata cultureelerfgoed nl/def/radar-elastic#';
 
