@@ -1,5 +1,6 @@
 import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, partsClause, withinClause, nearClause, inhoudClause, gebiedenListQuery, ligtInQuery, AFSTANDEN, IN_SOORTEN, ROND_SOORTEN, bucketsOf, search, facets, fields, sorts, soorten, soortVan, nummerVan, values, textValue, safeUrl, registerLink, afbeeldingUrl, toParams, fromParams, describe, toCsv, zonderFunctiecode, MET_FUNCTIECODE, jaartal, jaarBereik, JAARMODI, searchFields, DEFAULT_FIELD, PAGE_SIZE, MAX_WINDOW, EXPORT_MAX } from './search.js';
 import { geometryFor, mapGeometryFor, WKT_FIELD } from './geo.js';
+import { RADAR_ACTIEF, RADAR_ENDPOINT, radarQuery, radarMatches, radarTekst, radarSiteUrl } from './radar.js';
 import { OUDE_KAARTEN_URL, tegels, viewerUrl, kaartenOp, kaartLabel, eersteKeus, tegelOp, proefkaarten, bronFout, metVolgnummer, minuutplanUrl, minuutplannen, minuutplanLabel } from './oude-kaarten.js';
 const $ = id => document.getElementById(id);
 const blank = () => ({ query: '', field: DEFAULT_FIELD, filters: {}, jaar: {}, page: 0, sort: 'relevantie', binnen: null, jokers: state?.jokers ?? false });
@@ -272,6 +273,38 @@ async function loadBoneInfo(hits, signal) {
       : '';
     const links = matches.map(m => link(`BoneInfo cluster ${m.zoonr}`, `${BONEINFO_SITE}?cluster=${m.zoonr}`));
     entry.slot.append(relationRow('Archeozoölogie (BoneInfo):', [document.createTextNode(tekst), ...links]));
+  }
+}
+// Kruislink naar RADAR (archeobotanie): zelfde opzet als loadBoneInfo; de logica staat in radar.js.
+// Doet niets zolang RADAR_ACTIEF uit staat (de service bestaat dan nog niet).
+async function loadRadar(hits, signal) {
+  if (!RADAR_ACTIEF) return;
+  const targets = hits
+    .filter(hit => soortVan(hit._source?.['@id']) === 'vondstlocatie')
+    .map(hit => ({ id: hit._id, nummers: values(hit._source[fields.archis2Waarnemingsnummer]) }))
+    .filter(t => t.nummers.length);
+  if (!targets.length) return;
+  let data;
+  try {
+    const res = await fetch(RADAR_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      signal,
+      body: JSON.stringify(radarQuery([...new Set(targets.flatMap(t => t.nummers))])),
+    });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (error) {
+    if (error.name !== 'AbortError') console.error('RADAR', error);
+    return;
+  }
+  const per = radarMatches(targets, data.hits.hits.map(h => h._source));
+  for (const [id, sites] of per) {
+    const entry = relationSlots.get(id);
+    if (!entry) continue;
+    const labels = sites.map(site => { const url = radarSiteUrl(site.siteNr); return url ? link(`RADAR-site ${site.siteNr}`, url) : el('span', `RADAR-site ${site.siteNr}`); });
+    entry.slot.append(relationRow('Archeobotanie (RADAR):', [document.createTextNode(radarTekst(sites)), ...labels.flatMap((label, i) => (i ? [document.createTextNode(', '), label] : [label]))]));
   }
 }
 function markerIcon(number, soort, selected) {
@@ -610,7 +643,7 @@ async function run(urlMode = 'push') {
     await gebiedenLoaded;
     renderResults(hits); renderFilters(data.aggregations, context);
     const onMap = renderMap(hits);
-    loadRelations(hits, current.signal); loadLigtIn(hits, current.signal); loadBoneInfo(hits, current.signal);
+    loadRelations(hits, current.signal); loadLigtIn(hits, current.signal); loadBoneInfo(hits, current.signal); loadRadar(hits, current.signal);
     $('status').textContent = `Totaal gevonden: ${exact ? '' : 'minimaal '}${format(total)} | Getoond: ${hits.length}${map ? ` | Op kaart: ${onMap}` : ''}`;
     $('page-info').textContent = hits.length ? `${format(state.page * PAGE_SIZE + 1)} tot ${format(state.page * PAGE_SIZE + hits.length)}` : '';
     $('pagination').hidden = total <= PAGE_SIZE;

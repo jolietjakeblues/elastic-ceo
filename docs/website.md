@@ -157,6 +157,17 @@ Een lokale kopie van de dump kan ook: `node allmaps/maak-oude-kaarten.mjs pad/na
 - Gemarkeerde zoektermen behouden de spatie erna. In de SDO-demo viel die weg ("KERKGEBOUWuit").
 - De CSV heeft 19 kolommen: soort, nummer, naam, adres, plaats, gemeente, provincie, functie, type, materiaal, begin- en eindperiode, begin- en eindjaar, juridische status, vertrouwelijkheid, Linked Data, register en omschrijving.
 
+## Kruislink naar RADAR (archeobotanie)
+
+Een vondstlocatie met hetzelfde `archis2Waarnemingsnummer` als een site in RADAR (de archeobotanische referentiedatabase, zie het project RADAR naast dit project) krijgt in de resultaatkaart een regel *Archeobotanie (RADAR)*: het aantal plantenwaarnemingen, het aantal taxa en de eerste zes plantnamen. Zelfde opzet als de kruislink naar BoneInfo. De koppeling is een "zelfde nummer"-opzoeking, geen `owl:sameAs`.
+
+- De logica staat in [`web/radar.js`](../web/radar.js), zonder DOM en met unit-tests in `tests/web.test.mjs`; `loadRadar()` in [`web/app.js`](../web/app.js) doet het request en toont het resultaat.
+- Sites waarvan RADAR het waarnemingsnummer als onzeker markeert (`ar?` in de bron) worden niet gekoppeld. Horen meerdere RADAR-sites bij één nummer (dat komt voor), dan komen hun aantallen en taxa samen op één regel.
+- Een site waarvoor RADAR nog geen plantenwaarnemingen in de dataset heeft, toont alleen het sitenummer, niet "0 planten": dat is niet hetzelfde als "niets gevonden".
+- **Staat nu uit.** `RADAR_ACTIEF` in `web/radar.js` is `false`, omdat de Elastic-service `Radar` op `archeobotanie/radar-elastic` nog niet in TriplyDB bestaat; zonder die schakelaar zou elke zoekactie een mislukt verzoek doen. Zet hem op `true` zodra de service draait, en controleer dan `RADAR_ENDPOINT` (de naam van dataset en service).
+- Er is nog geen RADAR-zoeksite, dus het sitenummer is tekst. Is er een, vul dan `RADAR_SITE` in; de nummers worden dan links.
+- De CSP in `web/_headers` staat al toe dat de browser `api.linkeddata.cultureelerfgoed.nl` benadert; daar is niets voor aan te passen.
+
 ## Beveiliging en publicatie
 
 Zoals in de SDO-demo ([`web/_headers`](../web/_headers)): Content-Security-Policy, `frame-ancestors 'none'`, `noindex`, en geen HTML uit de bron in de pagina. Links gaan alleen naar http(s) en bekende registers, CSV-cellen worden beschermd tegen formules, en een schuine streep in de zoekvraag wordt geen reguliere expressie. Nieuw in de CSP: `img-src https://images.memorix.nl` voor de thumbnails `https://services.rce.geovoorziening.nl` (`connect-src`) voor de minuutplans, en `https://allmaps.xyz` voor de oude kaarten (ook in `connect-src`, omdat de tegels met `fetch` worden opgehaald, en `blob:` in `img-src`). De Allmaps-id's uit `oude-kaarten.json` moeten 16 hexadecimale tekens zijn; andere worden overgeslagen.
