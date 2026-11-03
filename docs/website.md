@@ -164,8 +164,8 @@ Een vondstlocatie met hetzelfde `archis2Waarnemingsnummer` als een site in RADAR
 - De logica staat in [`web/radar.js`](../web/radar.js), zonder DOM en met unit-tests in `tests/web.test.mjs`; `loadRadar()` in [`web/app.js`](../web/app.js) doet het request en toont het resultaat.
 - Sites waarvan RADAR het waarnemingsnummer als onzeker markeert (`ar?` in de bron) worden niet gekoppeld. Horen meerdere RADAR-sites bij één nummer (dat komt voor), dan komen hun aantallen en taxa samen op één regel.
 - Een site waarvoor RADAR nog geen plantenwaarnemingen in de dataset heeft, toont alleen het sitenummer, niet "0 planten": dat is niet hetzelfde als "niets gevonden".
-- **Staat nu uit.** `RADAR_ACTIEF` in `web/radar.js` is `false`, omdat de Elastic-service `Radar` op `archeobotanie/radar-elastic` nog niet in TriplyDB bestaat; zonder die schakelaar zou elke zoekactie een mislukt verzoek doen. Zet hem op `true` zodra de service draait, en controleer dan `RADAR_ENDPOINT` (de naam van dataset en service).
-- Er is nog geen RADAR-zoeksite, dus het sitenummer is tekst. Is er een, vul dan `RADAR_SITE` in; de nummers worden dan links.
+- **Schakelaar.** `RADAR_ACTIEF` in `web/radar.js` staat op `true`: de service `Radar` op `archeobotanie/radar-elastic` draait. Zet hem op `false` om de koppeling uit te zetten, bijvoorbeeld als de service tijdelijk weg is; de website doet dan geen verzoeken naar RADAR. Controleer `RADAR_ENDPOINT` als de dataset of de service een andere naam krijgt.
+- **Links.** `RADAR_SITE` verwijst naar de RADAR-zoeksite (Cloudflare-worker `radar`, `https://radar.jolietjakeblues64.workers.dev/`); het sitenummer wordt een link naar `?site=<nummer>`, waarmee die site de vindplaats meteen opent. Staat de RADAR-site niet online, zet `RADAR_SITE` dan op `null`: het nummer is dan tekst.
 - De CSP in `web/_headers` staat al toe dat de browser `api.linkeddata.cultureelerfgoed.nl` benadert; daar is niets voor aan te passen.
 
 ## Beveiliging en publicatie
