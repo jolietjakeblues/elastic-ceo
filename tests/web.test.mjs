@@ -5,6 +5,7 @@ import { buildQuery, buildExportQuery, buildRelationQuery, lookupQuery, withinCl
 import { WKT_FIELD, GELEEND_FIELD, mapGeometryFor } from '../web/geo.js';
 import { zonderFunctiecode } from '../web/search.js';
 import { readFileSync } from 'node:fs';
+import { RADAR_ACTIEF, RADAR_ENDPOINT, RADAR_SITE, RR, radarQuery, radarSite, radarMatches, radarTekst, radarSiteUrl } from '../web/radar.js';
 import { kaartenOp, eersteKeus, kaartLabel, tegels, viewerUrl, tegelOp, proefkaarten, bronFout, metVolgnummer, minuutplanUrl, minuutplannen, minuutplanLabel } from '../web/oude-kaarten.js';
 
 const kw = key => `${fields[key]}.keyword`;
@@ -185,4 +186,53 @@ test('Oude kaarten: volgnummer alleen bij dezelfde titel en hetzelfde jaar; proe
   assert.equal(bronFout(kop({})), null);
   assert.deepEqual(bronFout(kop({ 'X-Allmaps-Error': 'source-info', 'X-Allmaps-Error-Status': '502', 'X-Allmaps-Error-Message': 'Could not load source metadata' })), { status: 502, melding: 'Could not load source metadata', bronPlat: true });
   assert.equal(bronFout(kop({ 'X-Allmaps-Error': 'x', 'X-Allmaps-Error-Status': '404' })).bronPlat, false);
+});
+
+// RADAR (archeobotanie): kruislink op waarnemingsnummer, zie web/radar.js
+const radarDoc = (nummer, extra = {}) => ({ [`${RR}waarnemingsnummer`]: [nummer], [`${RR}siteNr`]: ['986'], [`${RR}aantalWaarnemingen`]: ['12'], [`${RR}wetenschappelijkeNaam`]: ['Hordeum vulgare', 'Avena'], [`${RR}plantnaam`]: ['Gerst', 'Haver'], ...extra });
+test('RADAR: staat uit tot de service bestaat; endpoint en veldnamen volgen de projectie', () => {
+  assert.equal(RADAR_ACTIEF, false);
+  assert.match(RADAR_ENDPOINT, /\/datasets\/archeobotanie\/radar-elastic\/services\/Radar\/_search$/);
+  assert.equal(RADAR_SITE, null);
+  assert.ok(RR.startsWith('https://linkeddata cultureelerfgoed nl/'), 'spaties in plaats van punten, zoals TriplyDB de veldnamen maakt');
+});
+test('RADAR: de query zoekt op waarnemingsnummer en slaat sites met een onzeker nummer over', () => {
+  const body = radarQuery(['42612', '26337']);
+  assert.deepEqual(body.query.bool.filter, [{ terms: { [`${RR}waarnemingsnummer.keyword`]: ['42612', '26337'] } }]);
+  assert.deepEqual(body.query.bool.must_not, [{ term: { [`${RR}waarnemingsnummerOnzeker`]: true } }]);
+  assert.ok(body._source.includes(`${RR}wetenschappelijkeNaam`) && body._source.every(veld => veld.startsWith(RR)));
+  assert.equal(body.size, 100);
+});
+test('RADAR: radarSite haalt de velden uit een document, ook als er velden ontbreken', () => {
+  assert.deepEqual(radarSite(radarDoc('42612')), { siteNr: '986', nummer: '42612', locatienaam: undefined, waarnemingen: 12, taxa: ['Hordeum vulgare', 'Avena'], namen: ['Gerst', 'Haver'] });
+  const leeg = radarSite({});
+  assert.equal(leeg.waarnemingen, 0); assert.deepEqual(leeg.taxa, []); assert.deepEqual(leeg.namen, []);
+});
+test('RADAR: een vondstlocatie krijgt alleen RADAR-sites met een van zijn waarnemingsnummers', () => {
+  const targets = [{ id: 'a', nummers: ['42612'] }, { id: 'b', nummers: ['1', '26337'] }, { id: 'c', nummers: ['999'] }];
+  const per = radarMatches(targets, [radarDoc('42612'), radarDoc('26337', { [`${RR}siteNr`]: ['7'] }), radarDoc('42612', { [`${RR}siteNr`]: ['8'] })]);
+  assert.deepEqual([...per.keys()], ['a', 'b']);
+  assert.deepEqual(per.get('a').map(s => s.siteNr), ['986', '8'], 'twee RADAR-sites met hetzelfde waarnemingsnummer');
+  assert.deepEqual(per.get('b').map(s => s.siteNr), ['7']);
+  assert.equal(per.has('c'), false);
+});
+test('RADAR: de tekst telt waarnemingen en taxa en noemt de Nederlandse namen', () => {
+  assert.equal(radarTekst([radarSite(radarDoc('1'))]), '12 plantenwaarnemingen, 2 taxa: Gerst, Haver ');
+  assert.equal(radarTekst([radarSite(radarDoc('1', { [`${RR}aantalWaarnemingen`]: ['1'], [`${RR}wetenschappelijkeNaam`]: ['Avena'], [`${RR}plantnaam`]: ['Haver'] }))]), '1 plantenwaarneming, 1 taxon: Haver ');
+  // twee sites: waarnemingen tellen op, taxa vallen samen
+  const twee = [radarSite(radarDoc('1')), radarSite(radarDoc('1', { [`${RR}aantalWaarnemingen`]: ['3'], [`${RR}wetenschappelijkeNaam`]: ['Avena', 'Secale cereale'], [`${RR}plantnaam`]: ['Haver', 'Rogge'] }))];
+  assert.equal(radarTekst(twee), '15 plantenwaarnemingen, 3 taxa: Gerst, Haver, Rogge ');
+  // zonder Nederlandse namen: de wetenschappelijke namen, alfabetisch, en maximaal zes
+  const veel = radarSite(radarDoc('1', { [`${RR}wetenschappelijkeNaam`]: ['Z', 'Y', 'X', 'W', 'V', 'U', 'T', 'S'], [`${RR}plantnaam`]: [] }));
+  assert.equal(radarTekst([veel]), '12 plantenwaarnemingen, 8 taxa: S, T, U, V, W, X, … ');
+});
+test('RADAR: een groep taxa uit de bron ("a|b") staat in de tekst als "a / b"', () => {
+  const groep = radarSite(radarDoc('1', { [`${RR}wetenschappelijkeNaam`]: ['Carex otrubae|Carex vulpina'], [`${RR}plantnaam`]: [] }));
+  assert.equal(radarTekst([groep]), '12 plantenwaarnemingen, 1 taxon: Carex otrubae / Carex vulpina ');
+});
+test('RADAR: een site zonder plantenwaarnemingen in de dataset geeft geen tekst (niet "0 planten")', () => {
+  assert.equal(radarTekst([radarSite(radarDoc('1', { [`${RR}aantalWaarnemingen`]: [], [`${RR}wetenschappelijkeNaam`]: [], [`${RR}plantnaam`]: [] }))]), '');
+});
+test('RADAR: zonder RADAR-zoeksite geen link', () => {
+  assert.equal(radarSiteUrl('986'), null);
 });
